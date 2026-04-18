@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# Least-privilege GITHUB_TOKEN: read-only is enough for clone + install.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
