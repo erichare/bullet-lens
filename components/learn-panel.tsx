@@ -46,11 +46,6 @@ const GLOSSARY: { term: string; short: string; detail: string }[] = [
 
 export default function LearnPanel() {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -89,7 +84,7 @@ export default function LearnPanel() {
 
             <div className="flex-1 overflow-y-auto px-6 py-5">
               <p className="text-sm leading-relaxed text-slate-300">
-                When a gun is fired, the barrel's rifling carves distinctive
+                When a gun is fired, the barrel&apos;s rifling carves distinctive
                 marks into the soft metal of the bullet. If you zoom in far
                 enough, those marks form a surface topography as unique as a
                 fingerprint. Bullet Lens lets you explore that topography
@@ -168,7 +163,7 @@ export default function LearnPanel() {
         <BookOpen className="h-3.5 w-3.5" />
         Learn
       </button>
-      {mounted && open && createPortal(modal, document.body)}
+      {open && createPortal(modal, document.body)}
     </>
   );
 }

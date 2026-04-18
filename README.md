@@ -1,33 +1,53 @@
 # Bullet Lens
 
 Modern, interactive 3D viewer for forensic bullet topography scans stored in the
-[ISO 5436-2](https://www.nmisa.org/iso5436-2/) `.x3p` format.
+ISO 5436-2 `.x3p` format. Drop one or more scans into your browser and inspect
+the land surface in three dimensions, extract live crosscut signatures,
+stitch multiple lands into a virtual bullet, and compare lands side-by-side or
+merged.
 
-Built as a companion to **bulletAnalyzrResearch** — purely a browser-side
-visualization tool, with no backend and no uploads.
+Everything runs **entirely in the browser** — no server, no uploads, no
+account. Drop-in `.x3p` → interactive 3D in one step.
 
-## Stack
-
-- **Next.js 16** + React 19 (App Router)
-- **React Three Fiber** + Three.js for WebGL 3D
-- **Tailwind CSS 4** for styling
-- **fflate** for client-side ZIP decoding of x3p archives
-- **zustand** for state
+---
 
 ## Features
 
-- Drag-and-drop `.x3p` files — parsing runs entirely in the browser
-- **Single-land view** — 3D surface rendering with orbit / zoom
-- **Bullet view** — drop multiple `.x3p` files to stitch them around a virtual barrel
-- **Crosscut plot** — live 1D signature extraction at any Y position
-- Colormaps (Viridis, Plasma, Magma, Cividis, Turbo, Bone), Z-exaggeration, wireframe
-- Built-in glossary & educational overlays explaining lands, striations, and the x3p format
-- Scale bar with real-world micron/mm measurements
+- **Drag-and-drop** `.x3p` files — parsing (ZIP → XML → binary matrix) runs
+  client-side via `fflate` and `DOMParser`.
+- **Single-land view** — 3D surface with orbit/zoom/pan, configurable
+  Z-exaggeration, wireframe toggle, and a clickable crosshair.
+- **Bullet view** — stitch ≥ 2 lands around a virtual barrel, preserving the
+  bullet's physical curvature while letting you amplify the striae
+  independently.
+- **Compare view** — two lands side-by-side (split) or stacked along a seam
+  (merged), with independent flip controls, a horizontal B-slide to dial in
+  striae alignment, and dual crosscut plots.
+- **Crosscut plot** — live 1D signature extraction at any Y position, with
+  optional detrending (quadratic fit, trimmed endpoints) to isolate striae.
+- **Colormaps** — Viridis, Plasma, Magma, **Cividis (default)**, Turbo, Bone.
+- **Scale overlay** — real-world micron/mm measurements on the active scan.
+- **Learn panel** — built-in glossary and educational overlays explaining
+  lands, striations, and the x3p format.
+
+## Stack
+
+- [Next.js 16](https://nextjs.org/) (App Router) + React 19
+- [`@react-three/fiber`](https://r3f.docs.pmnd.rs/) + Three.js for WebGL 3D
+- [Tailwind CSS 4](https://tailwindcss.com/) for styling
+- [`fflate`](https://github.com/101arrowz/fflate) for client-side ZIP decoding
+- [`zustand`](https://github.com/pmndrs/zustand) for state
+- [Vitest](https://vitest.dev/) + [`jsdom`](https://github.com/jsdom/jsdom)
+  for unit tests
+
+## Requirements
+
+- Node.js **20.11+** (see [`.nvmrc`](.nvmrc))
+- A browser with WebGL 2 and `DOMParser` — recent Chrome/Firefox/Safari/Edge.
 
 ## Dev
 
 ```bash
-cd inst/webapp
 npm install
 npm run dev
 # open http://localhost:3000
@@ -40,20 +60,72 @@ npm run build
 npm run start
 ```
 
+## Quality gates
+
+```bash
+npm run typecheck   # tsc --noEmit
+npm run lint        # eslint . (flat config)
+npm test            # vitest (headless, jsdom)
+npm run test:watch  # vitest --watch
+```
+
+CI runs typecheck → lint → test → build on every push and PR; see
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+## Deploying
+
+The app is a pure static/SSR Next.js app with no backend, env vars, or secrets.
+Deploy to [Vercel](https://vercel.com/) with zero config:
+
+```bash
+npx vercel            # preview
+npx vercel --prod     # production
+```
+
+Any Next.js-compatible host works.
+
 ## Notes
 
-- Large x3p matrices (&gt; 400k points) are decimated before upload to the GPU.
-- Invalid / NaN cells are skipped from the triangulation, so the resulting mesh
+- Large x3p matrices (> 400k cells) are decimated before upload to the GPU —
+  see [`decimate`](lib/x3p.ts) and [Architecture](docs/ARCHITECTURE.md).
+- Invalid / NaN cells are dropped from the triangulation, so the mesh
   faithfully reflects any masked regions in the scan.
-- Z-axis is visually exaggerated; a real land is only a few microns tall over
+- Z is visually exaggerated; a real land is only a few microns tall over
   millimeters of width.
+- In the **bullet view**, the physical curvature is held to a fixed amplitude
+  and only the high-frequency detail (striae) is amplified by Z-exaggeration.
+  This keeps the barrel looking round even at 5×+ exaggeration.
+
+## Project layout
+
+```
+app/               Next.js App Router entry (layout, page, global CSS, icon)
+components/        React components (viewers, panels, controls)
+lib/               Pure TS: x3p parsing, geometry, colormap, store, flatten
+scripts/           Node diagnostics (parse probes, never run in browser)
+docs/              Architecture + x3p format notes
+tests/             Vitest unit tests + synthetic fixture generator
+.github/workflows/ CI
+```
+
+More detail in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
+[`docs/X3P_FORMAT.md`](docs/X3P_FORMAT.md).
 
 ## Demo data
 
-A minimal demo file ships with the R package:
+Any valid `.x3p` bullet land will work. The Hamby reference set
+([Hamby et al., AFTE 2009](https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=905097))
+is a common source, and the companion R package
+[`bulletAnalyzrResearch`](https://github.com/heike/bulletAnalyzrResearch) ships
+canonical demo files under
+`inst/extdata/demo/hamby_set_44_final/barrel_1/bullet_1/land1.x3p`. Drop any of
+those into the app to try.
 
-```
-inst/extdata/demo/hamby_set_44_final/barrel_1/bullet_1/land1.x3p
-```
+## Contributing
 
-Drop it into the app to try.
+Bug reports and PRs welcome — please read
+[`CONTRIBUTING.md`](CONTRIBUTING.md) first.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).

@@ -8,3 +8,7 @@ dist
 .DS_Store
 next-env.d.ts
 .vercel
+# TypeScript incremental build cache (machine-local)
+*.tsbuildinfo
+# Vitest coverage output
+coverage

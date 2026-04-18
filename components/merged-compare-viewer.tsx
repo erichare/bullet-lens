@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo } from "react";
-import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
+import { Canvas, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, Grid } from "@react-three/drei";
 import * as THREE from "three";
 import type { X3pScan } from "@/lib/x3p";
@@ -186,14 +186,6 @@ function MergedContent({
   );
 }
 
-function SceneBackground() {
-  const { scene } = useThree();
-  useEffect(() => {
-    scene.background = new THREE.Color("#17130e");
-  }, [scene]);
-  return null;
-}
-
 export default function MergedCompareViewer(props: Props) {
   return (
     <Canvas
@@ -202,7 +194,7 @@ export default function MergedCompareViewer(props: Props) {
       shadows
       gl={{ antialias: true, alpha: false }}
     >
-      <SceneBackground />
+      <color attach="background" args={["#17130e"]} />
       <ambientLight intensity={0.35} />
       <directionalLight
         position={[10, 14, 8]}

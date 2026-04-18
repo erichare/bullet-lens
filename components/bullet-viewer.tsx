@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { X3pScan } from "@/lib/x3p";
@@ -77,14 +77,6 @@ function StitchedLand({
   );
 }
 
-function SceneBackground() {
-  const { scene } = useThree();
-  useEffect(() => {
-    scene.background = new THREE.Color("#17130e");
-  }, [scene]);
-  return null;
-}
-
 export default function BulletViewer(props: Props) {
   const { scans, colormap, zExaggeration, showWireframe, landCoverage } = props;
 
@@ -117,7 +109,7 @@ export default function BulletViewer(props: Props) {
       shadows
       gl={{ antialias: true, alpha: false }}
     >
-      <SceneBackground />
+      <color attach="background" args={["#17130e"]} />
       <ambientLight intensity={0.35} />
       <directionalLight position={[12, 14, 8]} intensity={1.3} castShadow />
       <directionalLight position={[-10, 6, -8]} intensity={0.5} color="#fcd9a3" />

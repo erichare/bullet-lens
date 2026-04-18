@@ -1,27 +1,21 @@
-// Node.js smoke test for the x3p parser against the demo file.
-// Uses jsdom to provide DOMParser in a Node environment.
+// Node.js smoke test for the x3p parser against a user-supplied file.
+// Usage: node scripts/smoke-parse.mjs path/to/scan.x3p
+//
+// Uses jsdom to provide DOMParser in a Node environment. For a fully
+// automated regression suite see `npm test`.
 
 import { readFileSync } from "node:fs";
-import { resolve, basename } from "node:path";
-import { fileURLToPath } from "node:url";
-import { dirname } from "node:path";
+import { basename } from "node:path";
 import { JSDOM } from "jsdom";
 import { unzipSync, strFromU8 } from "fflate";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 globalThis.DOMParser = new JSDOM().window.DOMParser;
 
-const demoPath = resolve(
-  __dirname,
-  "..",
-  "..",
-  "extdata",
-  "demo",
-  "hamby_set_44_final",
-  "barrel_1",
-  "bullet_1",
-  "land1.x3p",
-);
+const demoPath = process.argv[2];
+if (!demoPath) {
+  console.error("usage: node scripts/smoke-parse.mjs <path-to-x3p>");
+  process.exit(1);
+}
 
 const buf = readFileSync(demoPath);
 console.log(`Read ${buf.length} bytes from ${basename(demoPath)}`);
