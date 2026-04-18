@@ -29,7 +29,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^2.6.0",
-    "three": "^0.170.0",
+    "three": "^0.184.0",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
@@ -37,7 +37,7 @@
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
-    "@types/three": "^0.170.0",
+    "@types/three": "^0.184.0",
     "@vitest/coverage-v8": "^4.1.4",
     "eslint": "^9.17.0",
     "eslint-config-next": "^16.0.0",
