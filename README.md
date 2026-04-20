@@ -113,13 +113,24 @@ More detail in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
 
 ## Demo data
 
-Any valid `.x3p` bullet land will work. The Hamby reference set
+The welcome screen has a **Try a matching pair (demo)** button that pulls two
+lands from the NIST [Ballistics Toolmarks Research Database][nbtrd] (Hamby 252
+study — Barrel 1, Bullets 1 & 2, Land 2) and drops straight into the merged
+compare view. The measurement IDs come from the
+[CSAFE-ISU/`nbtrd`][nbtrd-pkg] R package. Because NBTRD doesn't send CORS
+headers, the app fetches them through the `/api/demo/[id]` route (a thin,
+allowlisted server-side proxy) rather than hitting NIST from the browser.
+
+Alternatively, drop your own `.x3p` files. The Hamby reference set
 ([Hamby et al., AFTE 2009](https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=905097))
 is a common source, and the companion R package
 [`bulletAnalyzrResearch`](https://github.com/heike/bulletAnalyzrResearch) ships
 canonical demo files under
 `inst/extdata/demo/hamby_set_44_final/barrel_1/bullet_1/land1.x3p`. Drop any of
 those into the app to try.
+
+[nbtrd]: https://tsapps.nist.gov/NRBTD/Studies/Search
+[nbtrd-pkg]: https://github.com/CSAFE-ISU/nbtrd
 
 ## Contributing
 

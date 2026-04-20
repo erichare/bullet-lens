@@ -2,6 +2,8 @@
 
 import { Sparkles, Layers, Box, LineChart } from "lucide-react";
 
+import DemoButton, { DemoAttribution } from "./demo-button";
+
 export default function WelcomeIntro() {
   return (
     <div className="w-full max-w-2xl text-center">
@@ -24,7 +26,12 @@ export default function WelcomeIntro() {
         them stitched around a virtual barrel.
       </p>
 
-      <div className="mt-10 grid grid-cols-3 gap-3 text-left">
+      <div className="mt-6 flex flex-col items-center">
+        <DemoButton />
+        <DemoAttribution />
+      </div>
+
+      <div className="mt-8 grid grid-cols-3 gap-3 text-left">
         <FeatureCard
           icon={<Layers className="h-4 w-4 text-amber-300" />}
           title="Single land"
