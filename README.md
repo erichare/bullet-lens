@@ -113,10 +113,12 @@ More detail in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
 
 ## Demo data
 
-The welcome screen has a **Try a matching pair (demo)** button that pulls two
-lands from the NIST [Ballistics Toolmarks Research Database][nbtrd] (Hamby 252
-study — Barrel 1, Bullets 1 & 2, Land 2) and drops straight into the merged
-compare view. The measurement IDs come from the
+The welcome screen has a **Try a matching pair (demo)** button that pulls all
+12 lands from the NIST [Ballistics Toolmarks Research Database][nbtrd] (Hamby
+252 study — Barrel 1, Bullets 1 & 2, 6 lands each) and drops into the merged
+compare view with a best-guess A/B pair pre-selected. Once loaded, use the
+`A`/`B` chips next to each scan in the right-hand panel to swap either slot
+and hunt for the actual match. The measurement IDs come from the
 [CSAFE-ISU/`nbtrd`][nbtrd-pkg] R package. Because NBTRD doesn't send CORS
 headers, the app fetches them through the `/api/demo/[id]` route (a thin,
 allowlisted server-side proxy) rather than hitting NIST from the browser.

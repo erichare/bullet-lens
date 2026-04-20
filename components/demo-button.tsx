@@ -4,32 +4,42 @@ import { useState } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 
 import { useApp } from "@/lib/store";
-import { loadDemoMatchingPair } from "@/lib/demo-loader";
-import { DEMO_MATCHING_PAIR } from "@/lib/demo-data";
+import { loadAllDemoLands } from "@/lib/demo-loader";
+import { DEFAULT_MATCHING_PAIR, DEMO_LANDS } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
 
 /**
- * Fetches the two known-match Hamby 252 lands via /api/demo, then drops them
- * straight into the compare view. Gives new users a one-click way to see the
- * app without hunting for `.x3p` files.
+ * Loads all 12 Hamby 252 Barrel-1 lands (both bullets × 6 lands each) via
+ * `/api/demo`, then drops the user into the merged compare view with A/B set
+ * to our best-guess match. Users can swap A/B from the scans panel once all
+ * lands are loaded to find the real match themselves.
  */
 export default function DemoButton() {
-  const { addScans, setMode, setError, setCompareLayout, setCompareFlipA } =
+  const { addScans, setMode, setError, setCompareLayout, setCompareFlipA, setCompareIndex } =
     useApp();
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
   const handleClick = async () => {
     if (loading) return;
     setLoading(true);
+    setProgress({ done: 0, total: DEMO_LANDS.length });
     setError(null);
     try {
-      const scans = await loadDemoMatchingPair();
+      const scans = await loadAllDemoLands((done, total) => {
+        setProgress({ done, total });
+      });
       if (scans.length < 2) {
         throw new Error("Demo loaded fewer than 2 lands");
       }
       addScans(scans);
-      // Merged compare view with A flipped is the canonical setup for viewing
-      // two matching lands across a seam.
+
+      // Index of each default land inside the just-added batch.
+      const aIdx = DEMO_LANDS.findIndex((l) => l.id === DEFAULT_MATCHING_PAIR.aId);
+      const bIdx = DEMO_LANDS.findIndex((l) => l.id === DEFAULT_MATCHING_PAIR.bId);
+      setCompareIndex("A", aIdx >= 0 ? aIdx : 0);
+      setCompareIndex("B", bIdx >= 0 ? bIdx : 1);
+
       setMode("compare");
       setCompareLayout("merged");
       setCompareFlipA(true);
@@ -39,8 +49,15 @@ export default function DemoButton() {
       );
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
+
+  const buttonLabel = (() => {
+    if (!loading) return "Try a matching pair (demo)";
+    if (progress) return `Fetching NBTRD demo… ${progress.done}/${progress.total}`;
+    return "Fetching NBTRD demo…";
+  })();
 
   return (
     <button
@@ -52,16 +69,14 @@ export default function DemoButton() {
         "hover:border-amber-300/60 hover:bg-amber-400/15 hover:text-amber-50",
         "disabled:cursor-wait disabled:opacity-70",
       )}
-      aria-label="Load a matching pair of bullet lands from the NIST NBTRD"
+      aria-label="Load all 12 NIST NBTRD Hamby 252 lands and start comparing"
     >
       {loading ? (
         <Loader2 className="h-4 w-4 animate-spin text-amber-200" />
       ) : (
         <Sparkles className="h-4 w-4 text-amber-200 transition group-hover:text-amber-100" />
       )}
-      <span>
-        {loading ? "Fetching NBTRD demo…" : "Try a matching pair (demo)"}
-      </span>
+      <span>{buttonLabel}</span>
     </button>
   );
 }
@@ -69,8 +84,8 @@ export default function DemoButton() {
 /** Small caption shown under the button explaining where the data comes from. */
 export function DemoAttribution() {
   return (
-    <p className="mt-2 text-center text-[11px] leading-relaxed text-slate-500">
-      Two lands from the{" "}
+    <p className="mt-2 max-w-md text-center text-[11px] leading-relaxed text-slate-500">
+      Twelve lands from the{" "}
       <a
         href="https://tsapps.nist.gov/NRBTD/Studies/Search"
         target="_blank"
@@ -79,10 +94,9 @@ export function DemoAttribution() {
       >
         NIST NBTRD
       </a>{" "}
-      Hamby 252 study — Barrel 1, Bullets 1 &amp; 2 (Land 2 on each).
-      <span className="sr-only">
-        {DEMO_MATCHING_PAIR.map((l) => l.label).join(" and ")}
-      </span>
+      Hamby 252 study — Barrel 1, Bullets 1 &amp; 2 (6 lands each). Two are
+      pre-selected as a likely match; swap any A/B pair from the scans panel
+      to explore the rest.
     </p>
   );
 }
