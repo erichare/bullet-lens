@@ -15,8 +15,15 @@ import { cn } from "@/lib/utils";
  * lands are loaded to find the real match themselves.
  */
 export default function DemoButton() {
-  const { addScans, setMode, setError, setCompareLayout, setCompareFlipA, setCompareIndex } =
-    useApp();
+  const {
+    addScans,
+    setMode,
+    setError,
+    setCompareLayout,
+    setCompareFlipA,
+    setCompareFlipB,
+    setCompareIndex,
+  } = useApp();
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
@@ -42,7 +49,10 @@ export default function DemoButton() {
 
       setMode("compare");
       setCompareLayout("merged");
-      setCompareFlipA(true);
+      // For this demo pair, Flip B (not Flip A) aligns the striae across the
+      // seam — the two bullets were scanned in mirror orientation.
+      setCompareFlipA(false);
+      setCompareFlipB(true);
     } catch (err) {
       setError(
         `Could not load demo: ${(err as Error).message}. Check your network and try again.`,
