@@ -24,6 +24,11 @@ updates:
         update-types: [version-update:semver-major]
       - dependency-name: react-dom
         update-types: [version-update:semver-major]
+      # eslint 10 is incompatible with eslint-plugin-react bundled via
+      # eslint-config-next (peer requires eslint ≤ 9.x). Unpin once
+      # eslint-config-next ships support for eslint 10.
+      - dependency-name: eslint
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
