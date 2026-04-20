@@ -67,9 +67,9 @@ export default function AppShell() {
       <TopBar />
 
       {!hasAny ? (
-        <main className="relative flex flex-1 items-center justify-center overflow-hidden">
+        <main className="relative flex flex-1 justify-center overflow-y-auto">
           <BackgroundOrbs />
-          <div className="relative z-10 flex w-full max-w-6xl flex-col items-center gap-8 px-6 py-8">
+          <div className="relative z-10 m-auto flex w-full max-w-6xl flex-col items-center gap-6 px-6 py-8">
             <WelcomeIntro />
             <DropZone />
           </div>

@@ -95,7 +95,7 @@ export default function DropZone({ compact = false }: Props) {
       onDrop={onDrop}
       onClick={() => inputRef.current?.click()}
       className={cn(
-        "group relative mx-auto flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed px-10 py-16 text-center transition-all duration-300",
+        "group relative mx-auto flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed px-10 py-10 text-center transition-all duration-300",
         hover
           ? "border-amber-400/50 bg-amber-400/5 shadow-[0_0_60px_-10px_rgba(228,169,74,0.45)]"
           : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]",
