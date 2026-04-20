@@ -151,8 +151,8 @@ export const DEMO_LANDS: readonly DemoLand[] = [
  * computed from signatures. Update this when the correct match is known.
  */
 export const DEFAULT_MATCHING_PAIR: { readonly aId: string; readonly bId: string } = {
-  aId: "hamby252-b1-bullet1-land2",
-  bId: "hamby252-b1-bullet2-land2",
+  aId: "hamby252-b1-bullet1-land3",
+  bId: "hamby252-b1-bullet2-land5",
 };
 
 /** Lookup by slug — used by the proxy route to validate incoming requests. */
