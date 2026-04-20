@@ -1,7 +1,7 @@
 "use client";
 
 import { DEMO_MATCHING_PAIR, type DemoLand } from "./demo-data";
-import { parseX3p, type X3pScan } from "./x3p";
+import { parseX3p, transposeScan, type X3pScan } from "./x3p";
 
 async function fetchDemoLand(land: DemoLand): Promise<X3pScan> {
   const res = await fetch(`/api/demo/${land.id}`);
@@ -14,7 +14,11 @@ async function fetchDemoLand(land: DemoLand): Promise<X3pScan> {
   const file = new File([blob], land.filename, {
     type: "application/octet-stream",
   });
-  return parseX3p(file);
+  const scan = await parseX3p(file);
+  // NBTRD Hamby scans are stored with striae running along the matrix's X
+  // axis; this app renders striae along Y. Transpose so striae come out
+  // vertical in the viewer and the crosscut cuts across them as intended.
+  return transposeScan(scan);
 }
 
 /** Fetches and parses both demo lands in parallel. */

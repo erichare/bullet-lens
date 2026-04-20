@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseX3p, decimate } from "@/lib/x3p";
+import { parseX3p, decimate, transposeScan } from "@/lib/x3p";
 import { asFile, buildSyntheticX3p } from "./fixtures/build-x3p";
 
 describe("parseX3p", () => {
@@ -128,5 +128,89 @@ describe("decimate", () => {
     const scan = await parseX3p(asFile(zipBytes));
     const out = decimate(scan, 1_000_000);
     expect(Number.isNaN(out.z[idx])).toBe(true);
+  });
+});
+
+describe("transposeScan", () => {
+  it("swaps sizeX/sizeY, axis metadata, and physical extents", async () => {
+    const { zipBytes } = buildSyntheticX3p({ sizeX: 8, sizeY: 12 });
+    const scan = await parseX3p(asFile(zipBytes, "t.x3p"));
+    const t = transposeScan(scan);
+
+    expect(t.meta.sizeX).toBe(scan.meta.sizeY);
+    expect(t.meta.sizeY).toBe(scan.meta.sizeX);
+    expect(t.widthMeters).toBeCloseTo(scan.heightMeters, 12);
+    expect(t.heightMeters).toBeCloseTo(scan.widthMeters, 12);
+    expect(t.meta.cx).toBe(scan.meta.cy);
+    expect(t.meta.cy).toBe(scan.meta.cx);
+  });
+
+  it("places original (i, j) at transposed (j, i)", async () => {
+    const { zipBytes } = buildSyntheticX3p({ sizeX: 5, sizeY: 3 });
+    const scan = await parseX3p(asFile(zipBytes, "t.x3p"));
+    const t = transposeScan(scan);
+
+    for (let j = 0; j < scan.meta.sizeY; j++) {
+      for (let i = 0; i < scan.meta.sizeX; i++) {
+        const orig = scan.z[j * scan.meta.sizeX + i];
+        // After transpose, (i, j) becomes (j, i) — i.e., new col = old row.
+        const transposed = t.z[i * t.meta.sizeX + j];
+        if (Number.isFinite(orig)) {
+          expect(transposed).toBeCloseTo(orig, 7);
+        } else {
+          expect(Number.isNaN(transposed)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("is an involution: transposing twice returns the original layout", async () => {
+    const { zipBytes } = buildSyntheticX3p({ sizeX: 7, sizeY: 4 });
+    const scan = await parseX3p(asFile(zipBytes, "t.x3p"));
+    const tt = transposeScan(transposeScan(scan));
+    expect(tt.meta.sizeX).toBe(scan.meta.sizeX);
+    expect(tt.meta.sizeY).toBe(scan.meta.sizeY);
+    for (let k = 0; k < scan.z.length; k++) {
+      if (Number.isFinite(scan.z[k])) {
+        expect(tt.z[k]).toBeCloseTo(scan.z[k], 7);
+      }
+    }
+  });
+
+  it("flips the direction of high-frequency stripes (proxy for striae)", async () => {
+    // Baseline fixture produces ripples along X (striae-like). After
+    // transpose those ripples should move from row-direction to col-direction.
+    const { zipBytes } = buildSyntheticX3p({ sizeX: 16, sizeY: 8 });
+    const scan = await parseX3p(asFile(zipBytes, "t.x3p"));
+    const t = transposeScan(scan);
+
+    const hf = (arr: Float32Array) => {
+      let e = 0;
+      let n = 0;
+      for (let i = 1; i < arr.length; i++) {
+        const a = arr[i - 1];
+        const b = arr[i];
+        if (Number.isFinite(a) && Number.isFinite(b)) {
+          const d = b - a;
+          e += d * d;
+          n++;
+        }
+      }
+      return n ? e / n : 0;
+    };
+
+    // Sample mid-row and mid-column of original vs transposed.
+    const origRow = new Float32Array(scan.meta.sizeX);
+    for (let i = 0; i < scan.meta.sizeX; i++) {
+      origRow[i] = scan.z[Math.floor(scan.meta.sizeY / 2) * scan.meta.sizeX + i];
+    }
+    const tRow = new Float32Array(t.meta.sizeX);
+    for (let i = 0; i < t.meta.sizeX; i++) {
+      tRow[i] = t.z[Math.floor(t.meta.sizeY / 2) * t.meta.sizeX + i];
+    }
+
+    // Where ripples ran along X (rows) in the original, after transpose rows
+    // should be smooth — so tRow has less high-freq energy than origRow.
+    expect(hf(origRow)).toBeGreaterThan(hf(tRow));
   });
 });

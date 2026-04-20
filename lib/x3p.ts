@@ -268,6 +268,41 @@ export async function parseX3p(file: File): Promise<X3pScan> {
 }
 
 /**
+ * Swap the X and Y axes of a parsed scan. The returned scan describes the same
+ * surface with rows and columns exchanged: striae that used to run along rows
+ * now run along columns, and vice versa.
+ *
+ * NBTRD-distributed Hamby scans, for example, are stored with striae running
+ * along the matrix's X axis, while this app renders striae vertically (along
+ * Y). Transposing on load lines up the orientation without changing the
+ * renderer.
+ */
+export function transposeScan(scan: X3pScan): X3pScan {
+  const { sizeX, sizeY } = scan.meta;
+  const zT = new Float32Array(sizeX * sizeY);
+  // out[i * sizeY + j] = in[j * sizeX + i]  — rows and columns exchanged.
+  for (let j = 0; j < sizeY; j++) {
+    const srcRow = j * sizeX;
+    for (let i = 0; i < sizeX; i++) {
+      zT[i * sizeY + j] = scan.z[srcRow + i];
+    }
+  }
+  return {
+    ...scan,
+    meta: {
+      ...scan.meta,
+      sizeX: sizeY,
+      sizeY: sizeX,
+      cx: scan.meta.cy,
+      cy: scan.meta.cx,
+    },
+    z: zT,
+    widthMeters: scan.heightMeters,
+    heightMeters: scan.widthMeters,
+  };
+}
+
+/**
  * Decimate an x3p surface to at most `maxPoints` cells while preserving aspect.
  * Returns a dense (no NaN skipped) grid — NaN cells are replaced by neighbor
  * average to keep the geometry manifold.
