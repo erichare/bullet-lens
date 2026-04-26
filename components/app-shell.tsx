@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { Layers, Box, AlertCircle, Columns2, FlipHorizontal2 } from "lucide-react";
+import {
+  Activity,
+  Layers,
+  Box,
+  AlertCircle,
+  Columns2,
+  FlipHorizontal2,
+} from "lucide-react";
 import dynamic from "next/dynamic";
 
 import { useApp } from "@/lib/store";
@@ -23,12 +30,10 @@ const MergedCompareViewer = dynamic(() => import("./merged-compare-viewer"), {
 });
 
 export default function AppShell() {
-  const [surface, setSurface] = useState<"explore" | "compare">("explore");
   const {
     scans,
     activeIndex,
     mode,
-    setMode,
     colormap,
     zExagLand,
     zExagBullet,
@@ -38,13 +43,9 @@ export default function AppShell() {
     compareIndexA,
     compareIndexB,
     compareLayout,
-    setCompareLayout,
     compareOffset,
-    setCompareOffset,
     compareFlipA,
-    setCompareFlipA,
     compareFlipB,
-    setCompareFlipB,
     error,
     setError,
   } = useApp();
@@ -57,8 +58,6 @@ export default function AppShell() {
 
   const active = scans[activeIndex];
   const hasAny = scans.length > 0;
-  const canBullet = scans.length >= 2;
-  const canCompare = scans.length >= 2;
   // Clamp compare indices to valid range
   const safeA = Math.min(Math.max(0, compareIndexA), Math.max(0, scans.length - 1));
   const safeB = Math.min(Math.max(0, compareIndexB), Math.max(0, scans.length - 1));
@@ -66,13 +65,16 @@ export default function AppShell() {
   const scanB = scans[safeB];
 
   return (
-    <div className="relative flex h-screen w-screen flex-col bg-[#17130e] text-slate-100">
-      <TopBar surface={surface} setSurface={setSurface} />
+    <div className="relative flex h-dvh w-screen flex-col bg-[#17130e] text-slate-100">
+      <TopBar />
 
-      {surface === "compare" ? (
-        <CompareWorkspace />
+      {mode === "model" ? (
+        <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+          <ViewerModeBar />
+          <CompareWorkspace />
+        </main>
       ) : !hasAny ? (
-        <main className="relative flex flex-1 justify-center overflow-y-auto">
+        <main className="relative flex flex-1 flex-col overflow-y-auto">
           <BackgroundOrbs />
           <div className="relative z-10 m-auto flex w-full max-w-6xl flex-col items-center gap-6 px-6 py-8">
             <WelcomeIntro />
@@ -80,49 +82,11 @@ export default function AppShell() {
           </div>
         </main>
       ) : (
-        <main className="relative flex flex-1 overflow-hidden">
+        <main className="relative flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
           <div className="relative flex min-w-0 flex-1 flex-col">
-            <div className="flex items-center justify-between border-b border-white/5 bg-[#0d0906]/60 px-4 py-2 backdrop-blur">
-              <div className="flex items-center gap-1 rounded-xl border border-white/5 bg-white/[0.02] p-1">
-                <ModeButton
-                  active={mode === "land"}
-                  onClick={() => setMode("land")}
-                  icon={<Layers className="h-3.5 w-3.5" />}
-                  label="Single land"
-                />
-                <ModeButton
-                  active={mode === "bullet"}
-                  onClick={() => setMode("bullet")}
-                  disabled={!canBullet}
-                  icon={<Box className="h-3.5 w-3.5" />}
-                  label={`Bullet (${scans.length})`}
-                />
-                <ModeButton
-                  active={mode === "compare"}
-                  onClick={() => setMode("compare")}
-                  disabled={!canCompare}
-                  icon={<Columns2 className="h-3.5 w-3.5" />}
-                  label="Land compare"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                {mode === "compare" && scanA && scanB && (
-                  <CompareLayoutBar
-                    layout={compareLayout}
-                    setLayout={setCompareLayout}
-                    flipA={compareFlipA}
-                    setFlipA={setCompareFlipA}
-                    flipB={compareFlipB}
-                    setFlipB={setCompareFlipB}
-                    offset={compareOffset}
-                    setOffset={setCompareOffset}
-                  />
-                )}
-                <DropZone compact />
-              </div>
-            </div>
+            <ViewerModeBar showFileActions />
 
-            <div className="relative min-h-0 flex-1">
+            <div className="relative h-[52svh] min-h-[340px] shrink-0 sm:h-[58svh] lg:min-h-0 lg:flex-1">
               {mode === "land" && active && (
                 <>
                   <LandViewer
@@ -134,7 +98,7 @@ export default function AppShell() {
                   />
                   <ScaleOverlay scan={active} />
                   <AxesLegend />
-                  <div className="pointer-events-none absolute bottom-4 right-4 z-10">
+                  <div className="pointer-events-none absolute bottom-3 right-3 z-10 sm:bottom-4 sm:right-4">
                     <ViewPresetsToolbar />
                   </div>
                 </>
@@ -149,14 +113,14 @@ export default function AppShell() {
                     landCoverage={landCoverage}
                   />
                   <BulletViewLegend count={scans.length} />
-                  <div className="pointer-events-none absolute bottom-4 right-4 z-10">
+                  <div className="pointer-events-none absolute bottom-3 right-3 z-10 sm:bottom-4 sm:right-4">
                     <ViewPresetsToolbar />
                   </div>
                 </>
               )}
               {mode === "compare" && scanA && scanB && compareLayout === "split" && (
-                <div className="flex h-full w-full">
-                  <div className="relative min-w-0 flex-1 border-r border-white/10">
+                <div className="flex h-full w-full flex-col sm:flex-row">
+                  <div className="relative min-h-0 min-w-0 flex-1 border-b border-white/10 sm:border-b-0 sm:border-r">
                     <LandViewer
                       scan={scanA}
                       colormap={colormap}
@@ -178,7 +142,7 @@ export default function AppShell() {
                     <CompareLabel slot="B" name={scanB.name} />
                     <ScaleOverlay scan={scanB} />
                   </div>
-                  <div className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
+                  <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 sm:bottom-4">
                     <ViewPresetsToolbar />
                   </div>
                 </div>
@@ -196,11 +160,11 @@ export default function AppShell() {
                     flipA={compareFlipA}
                     flipB={compareFlipB}
                   />
-                  <div className="pointer-events-none absolute left-4 top-4 z-10 flex items-center gap-2">
+                  <div className="pointer-events-none absolute left-3 right-3 top-3 z-10 flex min-w-0 items-center gap-2 sm:left-4 sm:right-auto sm:top-4">
                     <CompareLabel slot="A" name={scanA.name} inline />
                     <CompareLabel slot="B" name={scanB.name} inline />
                   </div>
-                  <div className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
+                  <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 sm:bottom-4">
                     <ViewPresetsToolbar />
                   </div>
                 </div>
@@ -208,7 +172,7 @@ export default function AppShell() {
             </div>
 
             {mode === "land" && active && (
-              <div className="h-48 shrink-0 border-t border-white/5 bg-[#0d0906]/60 p-2 backdrop-blur">
+              <div className="h-44 shrink-0 border-t border-white/5 bg-[#0d0906]/60 p-2 backdrop-blur sm:h-48">
                 <div className="px-3 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                   Crosscut signature
                 </div>
@@ -223,8 +187,8 @@ export default function AppShell() {
             )}
 
             {mode === "compare" && scanA && scanB && (
-              <div className="flex h-56 shrink-0 border-t border-white/5 bg-[#0d0906]/60 p-2 backdrop-blur">
-                <div className="relative min-w-0 flex-1 border-r border-white/10 pr-1">
+              <div className="flex h-[28rem] shrink-0 flex-col border-t border-white/5 bg-[#0d0906]/60 p-2 backdrop-blur sm:h-56 sm:flex-row">
+                <div className="relative min-h-0 min-w-0 flex-1 border-b border-white/10 pb-1 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-1">
                   <div className="px-3 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200/80">
                     <span className="mr-1.5 rounded bg-amber-400 px-1 py-0.5 text-[9px] font-bold text-[#17130e]">
                       A
@@ -239,7 +203,7 @@ export default function AppShell() {
                     />
                   </div>
                 </div>
-                <div className="relative min-w-0 flex-1 pl-1">
+                <div className="relative min-h-0 min-w-0 flex-1 pt-1 sm:pl-1 sm:pt-0">
                   <div className="px-3 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200/80">
                     <span className="mr-1.5 rounded bg-amber-400 px-1 py-0.5 text-[9px] font-bold text-[#17130e]">
                       B
@@ -272,17 +236,11 @@ export default function AppShell() {
   );
 }
 
-function TopBar({
-  surface,
-  setSurface,
-}: {
-  surface: "explore" | "compare";
-  setSurface: (surface: "explore" | "compare") => void;
-}) {
+function TopBar() {
   const { clearScans, scans } = useApp();
   return (
-    <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/5 bg-[#0d0906]/80 px-5 py-3 backdrop-blur">
-      <div className="flex items-center gap-3">
+    <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/5 bg-[#0d0906]/80 px-3 py-3 backdrop-blur sm:px-5">
+      <div className="flex min-w-0 items-center gap-3">
         <svg
           width="30"
           height="30"
@@ -311,32 +269,18 @@ function TopBar({
           ))}
           <circle cx="15" cy="15" r="1.4" fill="#f3c775" />
         </svg>
-        <div>
-          <div className="font-serif text-[17px] leading-none tracking-tight text-[color:var(--ink)]">
+        <div className="min-w-0">
+          <div className="truncate font-serif text-[17px] leading-none tracking-tight text-[color:var(--ink)]">
             Bullet Lens
           </div>
-          <div className="mt-1 text-[10px] uppercase tracking-[0.22em] text-[color:var(--muted)]">
+          <div className="mt-1 hidden text-[10px] uppercase tracking-[0.22em] text-[color:var(--muted)] min-[360px]:block">
             x3p topography viewer
           </div>
         </div>
       </div>
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <div className="mr-1 flex items-center gap-1 rounded-xl border border-white/5 bg-white/[0.02] p-1">
-          <SurfaceButton
-            active={surface === "explore"}
-            onClick={() => setSurface("explore")}
-            icon={<Layers className="h-3.5 w-3.5" />}
-            label="Explore"
-          />
-          <SurfaceButton
-            active={surface === "compare"}
-            onClick={() => setSurface("compare")}
-            icon={<Columns2 className="h-3.5 w-3.5" />}
-            label="Compare"
-          />
-        </div>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 sm:flex-none">
         <LearnPanel />
-        {surface === "explore" && scans.length > 0 && (
+        {scans.length > 0 && (
           <button
             onClick={clearScans}
             className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs text-slate-300 transition hover:border-white/20 hover:bg-white/[0.05]"
@@ -349,50 +293,95 @@ function TopBar({
   );
 }
 
-function SurfaceButton({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: ReactNode;
-  label: string;
-}) {
+function ViewerModeBar({ showFileActions = false }: { showFileActions?: boolean }) {
+  const {
+    scans,
+    mode,
+    setMode,
+    compareLayout,
+    setCompareLayout,
+    compareOffset,
+    setCompareOffset,
+    compareFlipA,
+    setCompareFlipA,
+    compareFlipB,
+    setCompareFlipB,
+  } = useApp();
+  const canBullet = scans.length >= 2;
+  const canCompare = scans.length >= 2;
+
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
-        active
-          ? "bg-amber-400/15 text-amber-100 shadow-[inset_0_0_0_1px_rgba(228,169,74,0.18)]"
-          : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200",
+    <div className="relative z-10 flex flex-col gap-2 border-b border-white/5 bg-[#0d0906]/60 px-3 py-2 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-4">
+      <div className="flex w-full min-w-0 items-center gap-1 overflow-x-auto rounded-xl border border-white/5 bg-white/[0.02] p-1 sm:w-auto">
+        <ModeButton
+          active={mode === "land"}
+          onClick={() => setMode("land")}
+          icon={<Layers className="h-3.5 w-3.5" />}
+          label="Single land"
+        />
+        {canBullet && (
+          <ModeButton
+            active={mode === "bullet"}
+            onClick={() => setMode("bullet")}
+            icon={<Box className="h-3.5 w-3.5" />}
+            label={`Bullet (${scans.length})`}
+          />
+        )}
+        {canCompare && (
+          <>
+            <ModeButton
+              active={mode === "compare"}
+              onClick={() => setMode("compare")}
+              icon={<Columns2 className="h-3.5 w-3.5" />}
+              label="Visual compare"
+            />
+            <ModeButton
+              active={mode === "model"}
+              onClick={() => setMode("model")}
+              icon={<Activity className="h-3.5 w-3.5" />}
+              label="Model compare"
+            />
+          </>
+        )}
+      </div>
+      {showFileActions && (
+        <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-end">
+          {mode === "compare" && canCompare && (
+            <CompareLayoutBar
+              layout={compareLayout}
+              setLayout={setCompareLayout}
+              flipA={compareFlipA}
+              setFlipA={setCompareFlipA}
+              flipB={compareFlipB}
+              setFlipB={setCompareFlipB}
+              offset={compareOffset}
+              setOffset={setCompareOffset}
+            />
+          )}
+          <DropZone compact />
+        </div>
       )}
-    >
-      {icon}
-      {label}
-    </button>
+    </div>
   );
 }
 
 function AxesLegend() {
   return (
-    <div className="pointer-events-none absolute right-4 top-4 z-10 rounded-xl border border-white/10 bg-[#0d0906]/70 px-3 py-2 text-[11px] text-slate-300 backdrop-blur">
+    <div className="pointer-events-none absolute right-3 top-3 z-10 hidden max-w-[calc(100%-1.5rem)] rounded-xl border border-white/10 bg-[#0d0906]/70 px-3 py-2 text-[11px] text-slate-300 backdrop-blur min-[420px]:block sm:right-4 sm:top-4">
       <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
         Axes
       </div>
       <div className="flex items-center gap-2">
         <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
-        X &mdash; along the land (≈ mm)
+        X - along the land (≈ mm)
       </div>
       <div className="flex items-center gap-2">
         <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
-        Y &mdash; along the bullet (≈ mm)
+        Y - along the bullet (≈ mm)
       </div>
       <div className="flex items-center gap-2">
         <span className="inline-block h-2 w-2 rounded-full bg-orange-300" />
-        Z &mdash; surface height (≈ µm)
+        Z - surface height (≈ µm)
       </div>
     </div>
   );
@@ -410,7 +399,7 @@ function CompareLabel({
   return (
     <div
       className={cn(
-        "pointer-events-none z-10 flex max-w-xs items-center gap-2 rounded-xl border border-white/10 bg-[#0d0906]/80 px-3 py-1.5 text-[11px] text-slate-200 backdrop-blur",
+        "pointer-events-none z-10 flex min-w-0 max-w-xs items-center gap-2 rounded-xl border border-white/10 bg-[#0d0906]/80 px-3 py-1.5 text-[11px] text-slate-200 backdrop-blur",
         !inline && "absolute left-4 top-4",
       )}
     >
@@ -444,7 +433,7 @@ function CompareLayoutBar({
   setOffset: (v: number) => void;
 }) {
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:flex-nowrap sm:overflow-x-auto">
       <div className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.03] p-0.5 text-[11px]">
         <button
           onClick={() => setLayout("split")}
@@ -497,8 +486,8 @@ function CompareLayoutBar({
             <FlipHorizontal2 className="h-3 w-3 rotate-90" />
             Flip B
           </button>
-          <div className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1">
-            <label className="text-[10px] uppercase tracking-wider text-slate-500">
+          <div className="flex min-w-[9rem] flex-1 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 sm:min-w-0 sm:flex-none">
+            <label className="hidden text-[10px] uppercase tracking-wider text-slate-500 min-[420px]:block">
               B&nbsp;slide
             </label>
             <input
@@ -508,7 +497,7 @@ function CompareLayoutBar({
               step={0.005}
               value={offset}
               onChange={(e) => setOffset(Number(e.target.value))}
-              className="h-1 w-28 cursor-pointer appearance-none rounded-full bg-white/10 accent-amber-400"
+              className="h-1 min-w-16 flex-1 cursor-pointer appearance-none rounded-full bg-white/10 accent-amber-400 sm:w-28 sm:flex-none"
               title="Slide B left/right to align striae across the seam"
             />
             <span className="w-10 text-right font-mono text-[10px] text-slate-300">
@@ -532,12 +521,12 @@ function CompareLayoutBar({
 
 function BulletViewLegend({ count }: { count: number }) {
   return (
-    <div className="pointer-events-none absolute left-4 top-4 z-10 max-w-xs rounded-xl border border-white/10 bg-[#0d0906]/70 px-3 py-2 text-[11px] text-slate-300 backdrop-blur">
+    <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-xl border border-white/10 bg-[#0d0906]/70 px-3 py-2 text-[11px] text-slate-300 backdrop-blur sm:left-4 sm:top-4 sm:max-w-xs">
       <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
         Stitched bullet
       </div>
       <div className="leading-relaxed text-slate-300">
-        {count} land{count === 1 ? "" : "s"} arranged around a virtual barrel.
+        {count} land{count === 1 ? "" : "s"}{" "}arranged around a virtual barrel.
         Gaps between lands represent where the barrel&apos;s lands left
         recessed grooves.
       </div>
@@ -563,7 +552,7 @@ function ModeButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition",
+        "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition",
         active
           ? "bg-white/10 text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
           : "text-slate-400 hover:text-slate-200",

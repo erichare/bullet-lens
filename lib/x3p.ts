@@ -23,6 +23,8 @@ export interface X3pMetadata {
 
 export interface X3pScan {
   name: string;
+  /** Original uploaded file, retained so model workflows can submit loaded evidence. */
+  sourceFile?: File;
   meta: X3pMetadata;
   /** Height values in meters, length = sizeX * sizeY, row-major with X fastest. NaN = invalid. */
   z: Float32Array;
@@ -256,6 +258,7 @@ export async function parseX3p(file: File): Promise<X3pScan> {
 
   return {
     name: file.name,
+    sourceFile: file,
     meta,
     z,
     widthMeters: (meta.sizeX - 1) * incX,

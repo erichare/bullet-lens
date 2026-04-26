@@ -10,9 +10,9 @@ import { cn } from "@/lib/utils";
 
 /**
  * Loads all 12 Hamby 252 Barrel-1 lands (both bullets × 6 lands each) via
- * `/api/demo`, then drops the user into the merged compare view with A/B set
- * to our best-guess match. Users can swap A/B from the scans panel once all
- * lands are loaded to find the real match themselves.
+ * `/api/demo`, then drops the user into the merged visual-compare view with
+ * A/B set to our best-guess match. Users can swap A/B from the scans panel
+ * once all lands are loaded to find the real match themselves.
  */
 export default function DemoButton() {
   const {

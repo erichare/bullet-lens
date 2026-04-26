@@ -72,6 +72,12 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
 
+      const compact = w < 520;
+      const tiny = w < 380;
+      padRef.current = compact
+        ? { l: tiny ? 34 : 40, r: 8, t: 14, b: 24 }
+        : { l: 48, r: 12, t: 14, b: 28 };
+
       const { x, z } = series;
       let zMin = Infinity;
       let zMax = -Infinity;
@@ -91,12 +97,13 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
       const pad = padRef.current;
       const pw = w - pad.l - pad.r;
       const ph = h - pad.t - pad.b;
+      const tickCount = tiny ? 2 : compact ? 3 : 4;
 
       // gridlines
       ctx.strokeStyle = "rgba(200, 183, 145, 0.10)";
       ctx.lineWidth = 1;
-      for (let i = 0; i <= 4; i++) {
-        const y = pad.t + (i / 4) * ph;
+      for (let i = 0; i <= tickCount; i++) {
+        const y = pad.t + (i / tickCount) * ph;
         ctx.beginPath();
         ctx.moveTo(pad.l, y);
         ctx.lineTo(pad.l + pw, y);
@@ -105,19 +112,19 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
 
       // axis labels
       ctx.fillStyle = "rgba(200, 183, 145, 0.8)";
-      ctx.font = "11px ui-sans-serif, system-ui, -apple-system";
+      ctx.font = `${compact ? 9 : 11}px ui-sans-serif, system-ui, -apple-system`;
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
-      for (let i = 0; i <= 4; i++) {
-        const y = pad.t + (i / 4) * ph;
-        const zVal = zMax - (i / 4) * zRange;
+      for (let i = 0; i <= tickCount; i++) {
+        const y = pad.t + (i / tickCount) * ph;
+        const zVal = zMax - (i / tickCount) * zRange;
         ctx.fillText(`${(zVal * 1e6).toFixed(1)} µm`, pad.l - 6, y);
       }
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      for (let i = 0; i <= 4; i++) {
-        const xv = pad.l + (i / 4) * pw;
-        const xmm = ((x[0] + (i / 4) * (x[x.length - 1] - x[0])) * 1000).toFixed(2);
+      for (let i = 0; i <= tickCount; i++) {
+        const xv = pad.l + (i / tickCount) * pw;
+        const xmm = ((x[0] + (i / tickCount) * (x[x.length - 1] - x[0])) * 1000).toFixed(2);
         ctx.fillText(`${xmm} mm`, xv, pad.t + ph + 6);
       }
 
@@ -163,11 +170,11 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
         // label showing physical X in mm
         const xMeters = x[0] + highlightX * (x[x.length - 1] - x[0]);
         const xLabel = `${(xMeters * 1000).toFixed(3)} mm`;
-        ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
+        ctx.font = `${compact ? 9 : 10}px ui-monospace, SFMono-Regular, Menlo, monospace`;
         ctx.textAlign = "left";
         ctx.textBaseline = "top";
         ctx.fillStyle = "rgba(253, 230, 138, 0.95)";
-        const labelX = Math.min(pad.l + pw - 70, hx + 4);
+        const labelX = Math.min(pad.l + pw - (compact ? 58 : 70), hx + 4);
         ctx.fillText(xLabel, labelX, pad.t + 2);
       }
 
@@ -189,11 +196,11 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
         className="h-full w-full cursor-crosshair"
         onClick={handleClick}
       />
-      <div className="absolute right-3 top-2 flex items-center gap-2">
+      <div className="absolute right-2 top-2 flex max-w-[calc(100%-3rem)] items-center gap-1.5 sm:right-3 sm:gap-2">
         <button
           onClick={() => setFlatten(!flatten)}
           className={cn(
-            "flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] transition",
+            "flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] transition sm:px-2",
             flatten
               ? "border-amber-400/50 bg-amber-400/15 text-amber-100"
               : "border-white/10 bg-black/30 text-slate-300 hover:border-white/20 hover:bg-black/50",
@@ -203,14 +210,14 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
           <Waves className="h-3 w-3" />
           Flatten
         </button>
-        <div className="pointer-events-none text-xs text-slate-400">
+        <div className="pointer-events-none truncate text-[10px] text-slate-400 sm:text-xs">
           y = {(series.yMeters * 1000).toFixed(3)} mm
         </div>
       </div>
       {highlightX !== null && (
         <button
           onClick={() => setHighlightX(null)}
-          className="absolute right-3 bottom-3 rounded-md border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] text-slate-300 transition hover:border-white/20 hover:bg-black/60"
+          className="absolute bottom-2 right-2 rounded-md border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] text-slate-300 transition hover:border-white/20 hover:bg-black/60 sm:bottom-3 sm:right-3"
         >
           clear marker
         </button>

@@ -3,11 +3,12 @@
 Modern, interactive 3D viewer for forensic bullet topography scans stored in the
 ISO 5436-2 `.x3p` format. Drop one or more scans into your browser and inspect
 the land surface in three dimensions, extract live crosscut signatures,
-stitch multiple lands into a virtual bullet, and compare lands side-by-side or
-merged.
+stitch multiple lands into a virtual bullet, compare lands visually, or run a
+model-backed comparison workflow.
 
-Everything runs **entirely in the browser** — no server, no uploads, no
-account. Drop-in `.x3p` → interactive 3D in one step.
+The interactive viewer runs **entirely in the browser** — dropped `.x3p` files
+stay in tab memory unless you explicitly use **Model compare**, which uploads
+the selected evidence bundles to the configured comparison API.
 
 ---
 
@@ -20,9 +21,12 @@ account. Drop-in `.x3p` → interactive 3D in one step.
 - **Bullet view** — stitch ≥ 2 lands around a virtual barrel, preserving the
   bullet's physical curvature while letting you amplify the striae
   independently.
-- **Compare view** — two lands side-by-side (split) or stacked along a seam
-  (merged), with independent flip controls, a horizontal B-slide to dial in
-  striae alignment, and dual crosscut plots.
+- **Visual compare mode** — two lands side-by-side (split) or stacked along a
+  seam (merged), with independent flip controls, a horizontal B-slide to dial
+  in striae alignment, and dual crosscut plots.
+- **Model compare mode** — submit the already-loaded evidence sets to a
+  comparison service, follow job progress, and inspect match probability,
+  artifacts, feature JSON, and provenance in the same app flow.
 - **Crosscut plot** — live 1D signature extraction at any Y position, with
   optional detrending (quadratic fit, trimmed endpoints) to isolate striae.
 - **Colormaps** — Viridis, Plasma, Magma, **Cividis (default)**, Turbo, Bone.
@@ -74,8 +78,13 @@ CI runs typecheck → lint → test → build on every push and PR; see
 
 ## Deploying
 
-The app is a pure static/SSR Next.js app with no backend, env vars, or secrets.
-Deploy to [Vercel](https://vercel.com/) with zero config:
+The viewer is a client-side Next.js app. It also includes a thin allowlisted
+`/api/demo/[id]` proxy for the NIST demo files, and Model compare calls the
+comparison API configured by `NEXT_PUBLIC_BULLET_COMPARE_API_BASE` or the URL
+typed into the model panel.
+
+Deploy to [Vercel](https://vercel.com/) with zero config for the viewer and
+demo proxy:
 
 ```bash
 npx vercel            # preview
@@ -95,6 +104,11 @@ Any Next.js-compatible host works.
 - In the **bullet view**, the physical curvature is held to a fixed amplitude
   and only the high-frequency detail (striae) is amplified by Z-exaggeration.
   This keeps the barrel looking round even at 5×+ exaggeration.
+- In **Model compare**, loaded evidence files are intentionally sent to the
+  selected comparison service. Demo-style `Bullet1` / `Bullet2` filenames are
+  grouped automatically; otherwise the current Visual compare A/B selections
+  are used. The default service URL can be changed with
+  `NEXT_PUBLIC_BULLET_COMPARE_API_BASE`.
 
 ## Project layout
 
@@ -116,7 +130,7 @@ More detail in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
 The welcome screen has a **Try a matching pair (demo)** button that pulls all
 12 lands from the NIST [Ballistics Toolmarks Research Database][nbtrd] (Hamby
 252 study — Barrel 1, Bullets 1 & 2, 6 lands each) and drops into the merged
-compare view with a best-guess A/B pair pre-selected. Once loaded, use the
+visual-compare mode with a best-guess A/B pair pre-selected. Once loaded, use the
 `A`/`B` chips next to each scan in the right-hand panel to swap either slot
 and hunt for the actual match. The measurement IDs come from the
 [CSAFE-ISU/`nbtrd`][nbtrd-pkg] R package. Because NBTRD doesn't send CORS

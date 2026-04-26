@@ -1,8 +1,10 @@
 # Architecture
 
-Bullet Lens is a **pure client-side** Next.js 16 App Router app. No backend,
-no API routes, no persisted state — every byte of a dropped `.x3p` stays in
-the browser's memory for the lifetime of the tab.
+Bullet Lens is a Next.js 16 App Router app whose core viewer runs client-side.
+Dropped `.x3p` files stay in browser memory for the lifetime of the tab unless
+the user explicitly enters **Model compare** and submits evidence bundles to a
+configured comparison API. The app also has a thin allowlisted `/api/demo/[id]`
+route used only to fetch curated NIST demo files that do not allow browser CORS.
 
 This document describes how the pieces fit together so a new contributor can
 make informed changes to the pipeline, the viewers, or the store.
@@ -31,9 +33,20 @@ make informed changes to the pipeline, the viewers, or the store.
          |
          +---> Single-land view  → buildLandGeometry()
          +---> Bullet view       → buildStitchedLandGeometry() × N
-         +---> Compare (split)   → 2× buildLandGeometry()
-         +---> Compare (merged)  → 2× buildLandGeometry() + flip + x-slide
+         +---> Visual compare (split)   → 2× buildLandGeometry()
+         +---> Visual compare (merged)  → 2× buildLandGeometry() + flip + x-slide
          +---> Crosscut plot     → extractCrosscut() → optional flattenSignature()
+
+  Model compare mode
+         |
+         v
+  CompareWorkspace (components/compare-workspace.tsx)
+         |   FormData from loaded scan source files: bullet_a[], bullet_b[], metadata
+         v
+  configured comparison API (/jobs, /jobs/:id, /health)
+         |
+         v
+  match probability, artifacts, features JSON, provenance
 ```
 
 Every arrow is a pure function except the DropZone (side-effectful) and the
@@ -79,7 +92,7 @@ Pure functions that turn an `X3pScan` into a `THREE.BufferGeometry`:
   colormap over the Z range. Triangles touching a NaN cell are skipped, so
   masked regions create real holes rather than spike artifacts.
   `sharedMaxPhys` lets multiple scans render at a common physical scale —
-  used by the merged compare view so the two lands line up at true size.
+  used by the merged visual-compare view so the two lands line up at true size.
 
 - **`buildStitchedLandGeometry(scan, opts)`** — cylindrical section for the
   bullet view. The scan's X axis wraps around the barrel (angular position);
@@ -125,8 +138,8 @@ swap in `d3-scale-chromatic` or a precomputed LUT texture.
 Single zustand store — `useApp`. Holds:
 
 - `scans: X3pScan[]` and `activeIndex`.
-- View mode (`land` | `bullet` | `compare`) and compare layout
-  (`split` | `merged`) + flips, B-slide offset, indices.
+- View mode (`land` | `bullet` | `compare` | `model`) and visual-compare
+  layout (`split` | `merged`) + flips, B-slide offset, indices.
 - Rendering settings: `colormap`, `zExagLand`, `zExagBullet`,
   `showWireframe`, `landCoverage` (bullet view angular span).
 - Interaction state: `crosscutY`, `highlightX`, `flatten`, `viewPreset` +
@@ -148,11 +161,12 @@ Tiny helpers: `cn()` for Tailwind class merging, `formatMicrons()` /
 
 | Component | Responsibility |
 | --- | --- |
-| `app-shell.tsx` | Top bar, mode switcher, compare controls, layout of viewers + crosscut plots, error toast. |
+| `app-shell.tsx` | Top bar, unified mode switcher, visual-compare controls, layout of viewers + crosscut plots, model workflow mount, error toast. |
+| `compare-workspace.tsx` | Model-compare workflow: comparison API health, evidence bundle upload, job polling, score/artifact/features/provenance output. |
 | `drop-zone.tsx` | File picker + drag-and-drop; calls `parseX3p`; writes to the store. |
 | `land-viewer.tsx` | Canvas for single-land view. Builds `buildLandGeometry`; renders mesh + Y crosscut bar + X highlight. |
 | `bullet-viewer.tsx` | Canvas for stitched bullet; computes angular layout from `landCoverage`; renders cylinder + N `StitchedLand`s. |
-| `merged-compare-viewer.tsx` | Canvas for merged compare; stacked A/B panels with independent flips and B-slide, shared crosscut + highlight. |
+| `merged-compare-viewer.tsx` | Canvas for merged visual compare; stacked A/B panels with independent flips and B-slide, shared crosscut + highlight. |
 | `crosscut-plot.tsx` | 2D canvas line plot with colormap-shaded line, optional flatten, X highlight. |
 | `metadata-panel.tsx` | Right-hand drawer with scan metadata, colormap picker, sliders, wireframe toggle. |
 | `learn-panel.tsx` | Educational overlay explaining lands, striae, and the x3p format. |
@@ -198,12 +212,23 @@ runner; we explicitly opted out of this for now. Manual QA via
 
 ---
 
+## Server Boundaries
+
+- **Viewer work is local.** Parsing, geometry, rendering, crosscuts, visual
+  compare, and viewer state all run in the browser.
+- **Demo data uses an allowlisted proxy.** `/api/demo/[id]` fetches known NIST
+  NBTRD measurement IDs because the upstream files do not send CORS headers.
+- **Model compare uploads by design.** `compare-workspace.tsx` derives
+  evidence from loaded scan `sourceFile`s, sends the selected A/B sets and
+  metadata to the configured comparison API, then polls for results. Demo-style
+  `Bullet1` / `Bullet2` filenames are grouped automatically; otherwise the
+  current Visual compare A/B selections are used. This is the only workflow
+  that transmits user-selected evidence.
+
 ## Non-goals
 
-- **No server / no uploads.** If you're tempted to add a backend, reconsider —
-  the "paste into browser" ergonomics are a core feature.
 - **No persistent storage.** The store is intentionally in-memory. A future
   `localStorage` hydration pass would be fine but should stay opt-in.
-- **No heavy analysis.** Cross-scan comparison statistics, CMC scoring,
-  registration — those live in the R package `bulletAnalyzrResearch`. This
-  viewer is a visualization layer.
+- **No in-browser heavy model inference.** Cross-scan registration, feature
+  extraction, and scoring are delegated to the comparison service; the app is
+  the interactive viewer and workflow surface.

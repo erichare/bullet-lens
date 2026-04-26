@@ -27,8 +27,8 @@ export function buildLandGeometry(
   maxPoints = 400_000,
   /**
    * Optional shared physical scale (in meters) used to normalize multiple
-   * scans onto a common scene scale — useful for the merged compare view so
-   * two lands are rendered at the SAME physical size regardless of their
+   * scans onto a common scene scale — useful for the merged visual-compare
+   * view so two lands are rendered at the SAME physical size regardless of their
    * individual dimensions.
    */
   sharedMaxPhys?: number,

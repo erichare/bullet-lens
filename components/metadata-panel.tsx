@@ -33,12 +33,12 @@ export default function MetadataPanel() {
   const active = compareMode ? scans[compareIndexA] : scans[activeIndex];
 
   return (
-    <aside className="flex h-full w-80 shrink-0 flex-col gap-4 border-l border-white/5 bg-[#0d0906]/60 p-4 backdrop-blur">
+    <aside className="flex w-full shrink-0 flex-col gap-4 border-t border-white/5 bg-[#0d0906]/60 p-4 backdrop-blur lg:h-full lg:w-80 lg:border-l lg:border-t-0">
       <div>
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
           Scans
         </h2>
-        <ul className="mt-2 space-y-1">
+        <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto pr-1 lg:max-h-none lg:overflow-visible lg:pr-0">
           {scans.map((scan, i) => {
             const isActive = !compareMode && i === activeIndex;
             const isA = compareMode && i === compareIndexA;
@@ -80,7 +80,7 @@ export default function MetadataPanel() {
                 )}
                 <button
                   onClick={() => removeScan(i)}
-                  className="rounded p-1 text-slate-500 opacity-0 transition hover:bg-white/10 hover:text-slate-200 group-hover:opacity-100"
+                  className="rounded p-1 text-slate-500 transition hover:bg-white/10 hover:text-slate-200 sm:opacity-0 sm:group-hover:opacity-100"
                   aria-label={`Remove ${scan.name}`}
                 >
                   <X className="h-3 w-3" />
@@ -96,7 +96,7 @@ export default function MetadataPanel() {
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
             Metadata
           </h2>
-          <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+          <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs min-[520px]:grid-cols-4 lg:grid-cols-2">
             <MetaRow label="Size" value={`${active.meta.sizeX} × ${active.meta.sizeY}`} />
             <MetaRow label="Points" value={formatCount(active.meta.sizeX * active.meta.sizeY)} />
             <MetaRow label="Width" value={formatMicrons(active.widthMeters)} />
@@ -156,7 +156,7 @@ export default function MetadataPanel() {
           <div className="mb-1.5 flex items-center justify-between text-xs text-slate-400">
             <span>Colormap</span>
           </div>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5 min-[420px]:grid-cols-3">
             {COLORMAPS.map((cm) => (
               <button
                 key={cm.id}
@@ -222,13 +222,13 @@ function MetaRow({
 }) {
   return (
     <>
-      <dt className={cn("text-slate-500", full && "col-span-2")}>
+      <dt className={cn("text-slate-500", full && "col-span-2 min-[520px]:col-span-4 lg:col-span-2")}>
         {label}
       </dt>
       <dd
         className={cn(
           "font-mono text-slate-200",
-          full && "col-span-2 truncate",
+          full && "col-span-2 truncate min-[520px]:col-span-4 lg:col-span-2",
         )}
       >
         {value}

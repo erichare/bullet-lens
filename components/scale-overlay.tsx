@@ -38,20 +38,20 @@ export default function ScaleOverlay({ scan }: Props) {
   const barPx = Math.round(approxPixelsWide * (barMeters / scan.widthMeters));
 
   return (
-    <div className="pointer-events-none absolute bottom-4 left-4 z-10 flex flex-col gap-1.5">
+    <div className="pointer-events-none absolute bottom-16 left-3 z-10 flex max-w-[calc(100%-7rem)] flex-col gap-1.5 sm:bottom-4 sm:left-4">
       <div className="flex items-center gap-2">
         <div
           className="relative h-0.5 bg-slate-200"
-          style={{ width: `${Math.min(240, Math.max(60, barPx))}px` }}
+          style={{ width: `${Math.min(180, Math.max(48, barPx))}px` }}
         >
           <div className="absolute -top-1 left-0 h-2 w-px bg-slate-200" />
           <div className="absolute -top-1 right-0 h-2 w-px bg-slate-200" />
         </div>
-        <span className="font-mono text-xs text-slate-200">
+        <span className="font-mono text-[11px] text-slate-200 sm:text-xs">
           {formatLength(barMeters)}
         </span>
       </div>
-      <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+      <div className="hidden text-[10px] uppercase tracking-[0.18em] text-slate-500 min-[420px]:block">
         Scan: {formatLength(scan.widthMeters)} × {formatLength(scan.heightMeters)}
       </div>
     </div>

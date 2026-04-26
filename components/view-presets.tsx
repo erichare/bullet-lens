@@ -33,8 +33,9 @@ const BULLET_PRESETS: Record<ViewPreset, [number, number, number]> = {
   side: [18, 0, 0],
 };
 
-// Camera positions for the merged compare view (two lands stacked vertically —
-// long X axis stays ~10 units, short Y axis is doubled to ~6-7 units).
+// Camera positions for the merged visual-compare view (two lands stacked
+// vertically — long X axis stays ~10 units, short Y axis is doubled to ~6-7
+// units).
 const COMPARE_PRESETS: Record<ViewPreset, [number, number, number]> = {
   perspective: [4, 4, 14],
   top: [0, 16, 0.001],
@@ -120,7 +121,7 @@ export function ViewPresetsToolbar({
   return (
     <div
       className={cn(
-        "pointer-events-auto flex items-center gap-0.5 rounded-xl border border-white/10 bg-[#0d0906]/75 p-1 text-[11px] text-slate-300 shadow-lg backdrop-blur",
+        "pointer-events-auto flex max-w-[calc(100vw-1.5rem)] items-center gap-0.5 overflow-x-auto rounded-xl border border-white/10 bg-[#0d0906]/75 p-1 text-[11px] text-slate-300 shadow-lg backdrop-blur",
         className,
       )}
     >
@@ -129,7 +130,7 @@ export function ViewPresetsToolbar({
           key={p.id}
           onClick={() => setViewPreset(p.id)}
           className={cn(
-            "flex items-center gap-1.5 rounded-md px-2.5 py-1 transition",
+            "flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 transition sm:px-2.5",
             viewPreset === p.id
               ? "bg-amber-400/15 text-amber-200"
               : "text-slate-300 hover:bg-white/[0.05] hover:text-slate-100",

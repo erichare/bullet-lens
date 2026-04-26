@@ -68,7 +68,7 @@ export default function DropZone({ compact = false }: Props) {
       <>
         <button
           onClick={() => inputRef.current?.click()}
-          className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 transition hover:border-white/20 hover:bg-white/10"
+          className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 transition hover:border-white/20 hover:bg-white/10"
         >
           <Upload className="h-4 w-4" />
           Add .x3p
@@ -110,7 +110,7 @@ export default function DropZone({ compact = false }: Props) {
       </h3>
       <p className="relative mt-2 max-w-md text-sm text-slate-400">
         A single land for inspection, or several to stitch into a full bullet.
-        Files stay in your browser — nothing is uploaded.
+        Files stay in your browser unless you run Model compare.
       </p>
       {loading && (
         <p className="relative mt-4 text-xs text-amber-300">Parsing…</p>

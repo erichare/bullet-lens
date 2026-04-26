@@ -4,7 +4,7 @@ import { create } from "zustand";
 import type { X3pScan } from "./x3p";
 import type { ColormapName } from "./colormap";
 
-export type ViewMode = "land" | "bullet" | "compare";
+export type ViewMode = "land" | "bullet" | "compare" | "model";
 export type ViewPreset = "perspective" | "top" | "bottom" | "front" | "side";
 export type CompareSlot = "A" | "B";
 export type CompareLayout = "split" | "merged";
@@ -94,12 +94,15 @@ export const useApp = create<AppState>((set) => ({
   removeScan: (idx) =>
     set((s) => {
       const next = s.scans.filter((_, i) => i !== idx);
+      const nextMode =
+        next.length < 2 && s.mode !== "land" ? "land" : s.mode;
       return {
         scans: next,
         activeIndex: Math.min(s.activeIndex, Math.max(0, next.length - 1)),
+        mode: nextMode,
       };
     }),
-  clearScans: () => set({ scans: [], activeIndex: 0, error: null }),
+  clearScans: () => set({ scans: [], activeIndex: 0, mode: "land", error: null }),
   setActiveIndex: (i) => set({ activeIndex: i }),
   setMode: (mode) => set({ mode }),
   setColormap: (colormap) => set({ colormap }),

@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, Layers, Box, LineChart } from "lucide-react";
+import { Activity, Sparkles, Layers, Box, LineChart } from "lucide-react";
 
 import DemoButton, { DemoAttribution } from "./demo-button";
 
@@ -22,8 +22,8 @@ export default function WelcomeIntro() {
         Every fired bullet carries a microscopic signature — striations left by
         the rifling inside the gun barrel. Drop an{" "}
         <span className="font-mono text-slate-200">.x3p</span> scan below to
-        explore one interactively, or drop several from a single bullet to see
-        them stitched around a virtual barrel.
+        explore one interactively, drop several from a single bullet to stitch
+        them around a virtual barrel, or run the model comparison workflow.
       </p>
 
       <div className="mt-5 flex flex-col items-center">
@@ -31,7 +31,7 @@ export default function WelcomeIntro() {
         <DemoAttribution />
       </div>
 
-      <div className="mt-6 grid grid-cols-3 gap-3 text-left">
+      <div className="mt-6 grid grid-cols-2 gap-3 text-left md:grid-cols-4">
         <FeatureCard
           icon={<Layers className="h-4 w-4 text-amber-300" />}
           title="Single land"
@@ -46,6 +46,11 @@ export default function WelcomeIntro() {
           icon={<LineChart className="h-4 w-4 text-orange-300" />}
           title="Signature"
           body="Extract the 1D height profile that forensic algorithms compare."
+        />
+        <FeatureCard
+          icon={<Activity className="h-4 w-4 text-sky-300" />}
+          title="Model compare"
+          body="Submit loaded evidence to the model service and inspect the score and artifacts."
         />
       </div>
     </div>

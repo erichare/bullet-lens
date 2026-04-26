@@ -35,8 +35,10 @@ Lint auto-fixes are available via `npm run lint:fix`.
 - **Pure functions in `lib/`**, React in `components/`, routes in `app/`.
   Don't reach across: components should import from `lib`, never the other
   way around.
-- **No backend.** Anything that needs a server goes somewhere else. Parsing,
-  geometry, and state all run in the browser.
+- **Keep server boundaries narrow.** Parsing, geometry, visual comparison, and
+  viewer state run in the browser. Server routes should stay limited to
+  allowlisted proxy/workflow needs, such as the curated demo proxy and the
+  configured model-comparison service.
 - **No `any`.** Use `unknown` for untrusted input and narrow it. If you find
   yourself reaching for `any`, the type signature of the function you're
   calling probably needs fixing first.

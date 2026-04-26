@@ -9,11 +9,9 @@ import {
   FileJson,
   Images,
   Loader2,
-  Sparkles,
-  Upload,
 } from "lucide-react";
 
-import { DEMO_LANDS, type DemoLand } from "@/lib/demo-data";
+import { useApp } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_API_BASE =
@@ -75,27 +73,41 @@ const tabs: Array<{ id: TabId; label: string; icon: ReactNode }> = [
 ];
 
 export default function CompareWorkspace() {
+  const { scans, compareIndexA, compareIndexB } = useApp();
   const [apiBase, setApiBase] = useState(DEFAULT_API_BASE);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
-  const [filesA, setFilesA] = useState<File[]>([]);
-  const [filesB, setFilesB] = useState<File[]>([]);
   const [metadata, setMetadata] = useState("{}");
   const [busy, setBusy] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
-  const [demoProgress, setDemoProgress] = useState<{
-    done: number;
-    total: number;
-  } | null>(null);
   const [result, setResult] = useState<CompareResult | null>(null);
   const [status, setStatus] = useState<JobStatus>({
     state: "idle",
-    message: "Waiting for files",
+    message: "Waiting for loaded evidence",
     progress: 0,
   });
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("artifacts");
   const pollRef = useRef<number | null>(null);
+
+  const evidence = useMemo(
+    () => buildEvidence(scans, compareIndexA, compareIndexB),
+    [scans, compareIndexA, compareIndexB],
+  );
+  const filesA = evidence.filesA;
+  const filesB = evidence.filesB;
+
+  useEffect(() => {
+    if (busy || result) return;
+    setStatus((current) => ({
+      ...current,
+      state: "idle",
+      message:
+        filesA.length && filesB.length
+          ? "Ready to run model compare"
+          : "Waiting for loaded evidence",
+      progress: 0,
+    }));
+  }, [filesA.length, filesB.length, busy, result]);
 
   const normalizedApiBase = useMemo(
     () => apiBase.trim().replace(/\/+$/, ""),
@@ -172,6 +184,10 @@ export default function CompareWorkspace() {
 
   const startComparison = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!filesA.length || !filesB.length) {
+      setError("Load at least two .x3p scans before running model compare.");
+      return;
+    }
     clearPoll();
     setBusy(true);
     setError(null);
@@ -226,55 +242,12 @@ export default function CompareWorkspace() {
       : result.decision?.is_match === false
         ? "Below decision threshold"
         : "No model score returned"
-    : status.message || "Waiting for files";
+    : status.message || "Waiting for loaded evidence";
   const progress = Math.max(0, Math.min(1, Number(status.progress || 0)));
   const canSubmit = filesA.length > 0 && filesB.length > 0 && !busy;
 
-  const loadDemoBundles = async () => {
-    if (demoLoading) return;
-    setDemoLoading(true);
-    setDemoProgress({ done: 0, total: DEMO_LANDS.length });
-    setError(null);
-    try {
-      const files = await loadDemoFiles((done, total) => {
-        setDemoProgress({ done, total });
-      });
-      setFilesA(files.filter((file) => file.bullet === 1).map((file) => file.file));
-      setFilesB(files.filter((file) => file.bullet === 2).map((file) => file.file));
-      setMetadata(
-        JSON.stringify(
-          {
-            demo: "NIST NBTRD Hamby 252",
-            barrel: 1,
-            bullet_a: "Bullet 1 lands 1-6",
-            bullet_b: "Bullet 2 lands 1-6",
-          },
-          null,
-          2,
-        ),
-      );
-      setResult(null);
-      setStatus({
-        state: "idle",
-        message: "Demo bundles loaded",
-        progress: 0,
-        events: [
-          {
-            message: "Demo bundles loaded",
-            at_utc: new Date().toISOString(),
-          },
-        ],
-      });
-    } catch (err) {
-      setError(`Could not load demo: ${(err as Error).message}`);
-    } finally {
-      setDemoLoading(false);
-      setDemoProgress(null);
-    }
-  };
-
   return (
-    <main className="relative min-h-0 flex-1 overflow-y-auto">
+    <div className="relative min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto grid w-full max-w-[1480px] gap-4 px-4 py-5 lg:px-6">
         <section className="flex flex-col gap-4 rounded-2xl border border-white/5 bg-[#0d0906]/55 p-4 backdrop-blur md:flex-row md:items-end md:justify-between">
           <div>
@@ -282,7 +255,7 @@ export default function CompareWorkspace() {
               Forensic model service
             </div>
             <h1 className="font-serif text-4xl leading-none tracking-tight text-[color:var(--ink)] sm:text-5xl">
-              Bullet Lens Compare
+              Model compare
             </h1>
             <p className="mt-2 text-sm text-[color:var(--muted)]">
               {healthError
@@ -341,41 +314,34 @@ export default function CompareWorkspace() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--muted)]">
-                    Upload evidence
+                    Loaded evidence
                   </span>
                   <strong className="mt-1 block text-lg leading-tight text-slate-100">
-                    Two bullet bundles
+                    Two comparison sets
                   </strong>
                 </div>
-                <button
-                  type="button"
-                  onClick={loadDemoBundles}
-                  disabled={demoLoading || busy}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 shadow-[0_0_32px_-16px_rgba(228,169,74,0.8)] transition hover:border-amber-300/60 hover:bg-amber-400/15 disabled:cursor-wait disabled:opacity-70"
-                  aria-label="Load NIST NBTRD Hamby 252 demo bullet bundles"
-                >
-                  {demoLoading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
-                  )}
-                  <span>{demoLabel(demoLoading, demoProgress)}</span>
-                </button>
               </div>
+              <p className="text-xs leading-relaxed text-slate-500">
+                {evidence.strategy}
+              </p>
             </div>
 
-            <FileDrop
+            <EvidenceSet
               label="Bullet A"
               files={filesA}
-              onFiles={setFilesA}
               accent="amber"
             />
-            <FileDrop
+            <EvidenceSet
               label="Bullet B"
               files={filesB}
-              onFiles={setFilesB}
               accent="emerald"
             />
+
+            {evidence.warning && (
+              <div className="rounded-xl border border-amber-300/20 bg-amber-400/10 px-3 py-2 text-xs leading-relaxed text-amber-100/90">
+                {evidence.warning}
+              </div>
+            )}
 
             <label className="grid gap-2">
               <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--muted)]">
@@ -396,7 +362,7 @@ export default function CompareWorkspace() {
               className="mt-1 flex min-h-12 items-center justify-center gap-2 rounded-xl border border-amber-300/50 bg-gradient-to-br from-[#f2c066] to-[#d9912f] px-4 py-3 text-sm font-bold text-[#17130e] shadow-lg shadow-amber-500/10 transition hover:border-amber-200/80 hover:shadow-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-              {busy ? "Comparison running" : "Run comparison"}
+              {busy ? "Comparison running" : "Run model compare"}
             </button>
           </form>
 
@@ -520,73 +486,53 @@ export default function CompareWorkspace() {
           </section>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 
-function FileDrop({
+function EvidenceSet({
   label,
   files,
-  onFiles,
   accent,
 }: {
   label: string;
   files: File[];
-  onFiles: (files: File[]) => void;
   accent: "amber" | "emerald";
 }) {
-  const [hover, setHover] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const acceptFiles = (list: FileList | File[]) => {
-    const next = Array.from(list).filter((file) =>
-      /\.(x3p|csv)$/i.test(file.name),
-    );
-    onFiles(next);
-  };
-
   return (
-    <label
-      onDragOver={(event) => {
-        event.preventDefault();
-        setHover(true);
-      }}
-      onDragLeave={() => setHover(false)}
-      onDrop={(event) => {
-        event.preventDefault();
-        setHover(false);
-        acceptFiles(event.dataTransfer.files);
-      }}
+    <section
       className={cn(
-        "relative grid min-h-32 cursor-pointer content-center gap-3 overflow-hidden rounded-2xl border border-dashed bg-white/[0.018] p-4 transition",
+        "relative grid min-h-28 content-start gap-2 overflow-hidden rounded-2xl border bg-white/[0.018] p-4",
         accent === "amber" &&
           "bg-[linear-gradient(135deg,rgba(228,169,74,0.04),rgba(133,169,145,0.02))]",
         accent === "emerald" &&
           "bg-[linear-gradient(135deg,rgba(133,169,145,0.04),rgba(228,169,74,0.02))]",
-        hover
-          ? "border-amber-400/50 shadow-[0_0_56px_-24px_rgba(228,169,74,0.7)]"
-          : "border-white/15 hover:border-amber-400/40",
+        files.length
+          ? "border-white/15"
+          : "border-dashed border-amber-400/25",
       )}
     >
       <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--muted)]">
         {label}
       </span>
-      <strong className="break-words text-xl leading-tight text-slate-100">
-        {fileLabel(files)}
+      <strong className="text-xl leading-tight text-slate-100">
+        {files.length ? `${files.length} file${files.length === 1 ? "" : "s"}` : "No loaded files"}
       </strong>
-      <span className="flex items-center gap-2 text-xs text-slate-400">
-        <Upload className="h-3.5 w-3.5 text-amber-300" />
-        .x3p lands and optional groove CSV
-      </span>
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".x3p,.csv"
-        multiple
-        className="sr-only"
-        onChange={(event) => event.target.files && acceptFiles(event.target.files)}
-      />
-    </label>
+      {files.length ? (
+        <ul className="max-h-28 space-y-1 overflow-y-auto pr-1 text-xs text-slate-400">
+          {files.map((file, index) => (
+            <li key={`${file.name}-${index}`} className="truncate font-mono" title={file.name}>
+              {file.name}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <span className="text-xs leading-relaxed text-slate-500">
+          Load scans in the main viewer, then assign A/B from Visual compare if
+          filenames do not identify Bullet 1 and Bullet 2.
+        </span>
+      )}
+    </section>
   );
 }
 
@@ -674,51 +620,69 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   );
 }
 
-function fileLabel(files: File[]) {
-  if (files.length === 0) return "No files";
-  if (files.length === 1) return files[0]?.name || "1 file";
-  return `${files.length} files`;
-}
-
-function demoLabel(
-  loading: boolean,
-  progress: { done: number; total: number } | null,
-) {
-  if (!loading) return "Try matching pair";
-  if (progress) return `${progress.done}/${progress.total}`;
-  return "Loading";
-}
-
-async function loadDemoFiles(
-  onProgress?: (completed: number, total: number) => void,
-) {
-  const out: Array<{ bullet: DemoLand["bullet"]; file: File }> = [];
-  let completed = 0;
-
-  for (const land of DEMO_LANDS) {
-    const response = await fetch(`/api/demo/${land.id}`);
-    if (!response.ok) {
-      throw new Error(
-        `Could not load ${land.label} (${response.status} ${response.statusText})`,
-      );
-    }
-    const blob = await response.blob();
-    out.push({
-      bullet: land.bullet,
-      file: new File([blob], land.filename, {
-        type: "application/octet-stream",
-      }),
-    });
-    completed += 1;
-    onProgress?.(completed, DEMO_LANDS.length);
-  }
-
-  return out;
-}
-
 function formatProbability(value: unknown) {
   if (typeof value !== "number" || Number.isNaN(value)) return "--";
   return `${Math.round(value * 1000) / 10}%`;
+}
+
+function buildEvidence(
+  scans: ReturnType<typeof useApp.getState>["scans"],
+  compareIndexA: number,
+  compareIndexB: number,
+): {
+  filesA: File[];
+  filesB: File[];
+  strategy: string;
+  warning?: string;
+} {
+  const withFiles = scans
+    .map((scan, index) => ({ scan, index, file: scan.sourceFile }))
+    .filter((item): item is { scan: typeof scans[number]; index: number; file: File } =>
+      Boolean(item.file),
+    );
+
+  const groupedA = withFiles
+    .filter(({ scan }) => inferBulletNumber(scan.name) === 1)
+    .map(({ file }) => file);
+  const groupedB = withFiles
+    .filter(({ scan }) => inferBulletNumber(scan.name) === 2)
+    .map(({ file }) => file);
+
+  if (groupedA.length && groupedB.length) {
+    return {
+      filesA: groupedA,
+      filesB: groupedB,
+      strategy: "Using loaded scans grouped by Bullet 1 and Bullet 2 filenames.",
+    };
+  }
+
+  const slotA = withFiles.find(({ index }) => index === compareIndexA)?.file;
+  const slotB = withFiles.find(({ index }) => index === compareIndexB)?.file;
+  if (slotA && slotB && compareIndexA !== compareIndexB) {
+    return {
+      filesA: [slotA],
+      filesB: [slotB],
+      strategy: "Using the current A/B selections from Visual compare.",
+      warning:
+        "Could not infer full bullet bundles from filenames, so Model compare will submit the selected A/B lands only.",
+    };
+  }
+
+  return {
+    filesA: [],
+    filesB: [],
+    strategy: "Load at least two scans before running Model compare.",
+    warning:
+      "Loaded scans must retain their original File objects. Re-add the scans if this session was restored from derived data.",
+  };
+}
+
+function inferBulletNumber(name: string): 1 | 2 | null {
+  if (/(^|[^a-z0-9])bullet[_\s-]*1([^0-9]|$)/i.test(name)) return 1;
+  if (/(^|[^a-z0-9])bullet[_\s-]*2([^0-9]|$)/i.test(name)) return 2;
+  if (/(^|[^a-z0-9])b[_\s-]*1([^0-9]|$)/i.test(name)) return 1;
+  if (/(^|[^a-z0-9])b[_\s-]*2([^0-9]|$)/i.test(name)) return 2;
+  return null;
 }
 
 function readCoverage(features: CompareResult["features"] | undefined) {
