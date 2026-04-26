@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Layers, Box, AlertCircle, Columns2, FlipHorizontal2 } from "lucide-react";
 import dynamic from "next/dynamic";
 
 import { useApp } from "@/lib/store";
+import CompareWorkspace from "./compare-workspace";
 import DropZone from "./drop-zone";
 import MetadataPanel from "./metadata-panel";
 import CrosscutPlot from "./crosscut-plot";
@@ -21,6 +23,7 @@ const MergedCompareViewer = dynamic(() => import("./merged-compare-viewer"), {
 });
 
 export default function AppShell() {
+  const [surface, setSurface] = useState<"explore" | "compare">("explore");
   const {
     scans,
     activeIndex,
@@ -64,9 +67,11 @@ export default function AppShell() {
 
   return (
     <div className="relative flex h-screen w-screen flex-col bg-[#17130e] text-slate-100">
-      <TopBar />
+      <TopBar surface={surface} setSurface={setSurface} />
 
-      {!hasAny ? (
+      {surface === "compare" ? (
+        <CompareWorkspace />
+      ) : !hasAny ? (
         <main className="relative flex flex-1 justify-center overflow-y-auto">
           <BackgroundOrbs />
           <div className="relative z-10 m-auto flex w-full max-w-6xl flex-col items-center gap-6 px-6 py-8">
@@ -97,7 +102,7 @@ export default function AppShell() {
                   onClick={() => setMode("compare")}
                   disabled={!canCompare}
                   icon={<Columns2 className="h-3.5 w-3.5" />}
-                  label="Compare"
+                  label="Land compare"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -267,10 +272,16 @@ export default function AppShell() {
   );
 }
 
-function TopBar() {
+function TopBar({
+  surface,
+  setSurface,
+}: {
+  surface: "explore" | "compare";
+  setSurface: (surface: "explore" | "compare") => void;
+}) {
   const { clearScans, scans } = useApp();
   return (
-    <header className="flex shrink-0 items-center justify-between border-b border-white/5 bg-[#0d0906]/80 px-5 py-3 backdrop-blur">
+    <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/5 bg-[#0d0906]/80 px-5 py-3 backdrop-blur">
       <div className="flex items-center gap-3">
         <svg
           width="30"
@@ -309,9 +320,23 @@ function TopBar() {
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="mr-1 flex items-center gap-1 rounded-xl border border-white/5 bg-white/[0.02] p-1">
+          <SurfaceButton
+            active={surface === "explore"}
+            onClick={() => setSurface("explore")}
+            icon={<Layers className="h-3.5 w-3.5" />}
+            label="Explore"
+          />
+          <SurfaceButton
+            active={surface === "compare"}
+            onClick={() => setSurface("compare")}
+            icon={<Columns2 className="h-3.5 w-3.5" />}
+            label="Compare"
+          />
+        </div>
         <LearnPanel />
-        {scans.length > 0 && (
+        {surface === "explore" && scans.length > 0 && (
           <button
             onClick={clearScans}
             className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs text-slate-300 transition hover:border-white/20 hover:bg-white/[0.05]"
@@ -321,6 +346,33 @@ function TopBar() {
         )}
       </div>
     </header>
+  );
+}
+
+function SurfaceButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+        active
+          ? "bg-amber-400/15 text-amber-100 shadow-[inset_0_0_0_1px_rgba(228,169,74,0.18)]"
+          : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
@@ -503,7 +555,7 @@ function ModeButton({
   active: boolean;
   onClick: () => void;
   disabled?: boolean;
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
 }) {
   return (
