@@ -164,9 +164,6 @@ export default function CompareWorkspace() {
     async (statusUrl: string) => {
       const response = await fetch(resolveApiUrl(statusUrl));
       const nextStatus = await readApiJson<JobStatus>(response);
-      if (nextStatus.ok === false) {
-        throw new Error(readError(nextStatus.error) || "Could not read job status");
-      }
 
       setStatus(nextStatus);
 
@@ -178,7 +175,11 @@ export default function CompareWorkspace() {
       }
 
       if (nextStatus.state === "failed") {
-        throw new Error(readError(nextStatus.error) || "Comparison failed");
+        throw new Error(buildFailureMessage(nextStatus));
+      }
+
+      if (nextStatus.ok === false) {
+        throw new Error(readError(nextStatus.error) || "Could not read job status");
       }
 
       const staleMs = getStatusAgeMs(nextStatus);
@@ -729,7 +730,18 @@ function readCoverage(features: CompareResult["features"] | undefined) {
 
 function readError(error: JobStatus["error"]) {
   if (!error) return null;
-  return typeof error === "string" ? error : error.message || null;
+  const message = typeof error === "string" ? error : error.message || "";
+  return message.trim() || null;
+}
+
+function buildFailureMessage(status: JobStatus) {
+  const explicit = readError(status.error);
+  if (explicit) return explicit;
+  const lastEvent = readLastEvent(status.events);
+  const previousEvent = status.events?.findLast((event) => event.stage !== "failed");
+  const stage = previousEvent?.stage || lastEvent?.stage || status.stage;
+  const message = previousEvent?.message || status.message || "Comparison failed";
+  return stage && stage !== "failed" ? `${message} (${stage})` : message;
 }
 
 async function readApiJson<T>(response: Response): Promise<T> {
