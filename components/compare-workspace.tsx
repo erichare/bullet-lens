@@ -145,8 +145,8 @@ export default function CompareWorkspace() {
     setHealthError(null);
     try {
       const response = await fetch(resolveApiUrl("/health"));
-      const nextHealth = (await response.json()) as HealthResponse;
-      if (!response.ok || nextHealth.ok === false) {
+      const nextHealth = await readApiJson<HealthResponse>(response);
+      if (nextHealth.ok === false) {
         throw new Error("API health check failed");
       }
       setHealth(nextHealth);
@@ -163,8 +163,8 @@ export default function CompareWorkspace() {
   const pollJob = useCallback(
     async (statusUrl: string) => {
       const response = await fetch(resolveApiUrl(statusUrl));
-      const nextStatus = (await response.json()) as JobStatus;
-      if (!response.ok || nextStatus.ok === false) {
+      const nextStatus = await readApiJson<JobStatus>(response);
+      if (nextStatus.ok === false) {
         throw new Error(readError(nextStatus.error) || "Could not read job status");
       }
 
@@ -234,9 +234,10 @@ export default function CompareWorkspace() {
       const response = await fetch(resolveApiUrl("/jobs"), {
         method: "POST",
         body: data,
+        // Do not set Content-Type; the browser supplies the multipart boundary.
       });
-      const job = (await response.json()) as JobStatus & { status_url?: string };
-      if (!response.ok || job.ok === false) {
+      const job = await readApiJson<JobStatus & { status_url?: string }>(response);
+      if (job.ok === false) {
         throw new Error(readError(job.error) || "Could not start comparison");
       }
       setStatus({
@@ -729,6 +730,18 @@ function readCoverage(features: CompareResult["features"] | undefined) {
 function readError(error: JobStatus["error"]) {
   if (!error) return null;
   return typeof error === "string" ? error : error.message || null;
+}
+
+async function readApiJson<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(text || `${response.status} ${response.statusText}`);
+  }
+  try {
+    return JSON.parse(text || "{}") as T;
+  } catch {
+    throw new Error(`API returned invalid JSON: ${text.slice(0, 160)}`);
+  }
 }
 
 function readLastEvent(events: CompareEvent[] | undefined) {
