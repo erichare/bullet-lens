@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 const DEFAULT_API_BASE =
   process.env.NEXT_PUBLIC_BULLET_COMPARE_API_BASE ||
   "https://bulletanalyzrresearch-production.up.railway.app";
+const POLL_INTERVAL_MS = 900;
+const STALE_JOB_WARNING_MS = 90_000;
 
 type HealthResponse = {
   ok?: boolean;
@@ -27,21 +29,28 @@ type HealthResponse = {
 };
 
 type CompareEvent = {
+  state?: string;
   message?: string;
   stage?: string;
+  progress?: number;
   at_utc?: string;
+  detail?: unknown;
 };
 
 type JobStatus = {
   ok?: boolean;
   state?: "queued" | "running" | "complete" | "failed" | string;
+  stage?: string;
   request_id?: string;
   job_id?: string;
   message?: string;
   progress?: number;
+  detail?: unknown;
   events?: CompareEvent[];
   result?: CompareResult;
   error?: { message?: string } | string;
+  created_at_utc?: string;
+  updated_at_utc?: string;
 };
 
 type CompareResult = {
@@ -172,12 +181,28 @@ export default function CompareWorkspace() {
         throw new Error(readError(nextStatus.error) || "Comparison failed");
       }
 
+      const staleMs = getStatusAgeMs(nextStatus);
+      if (
+        (nextStatus.state === "queued" || nextStatus.state === "running") &&
+        staleMs !== null &&
+        staleMs > STALE_JOB_WARNING_MS
+      ) {
+        const lastStage = nextStatus.stage || readLastEvent(nextStatus.events)?.stage;
+        setError(
+          `No API progress for ${formatDuration(staleMs)}${
+            lastStage ? ` at ${lastStage}` : ""
+          }. The job is still marked ${nextStatus.state}, so polling will continue.`,
+        );
+      } else {
+        setError(null);
+      }
+
       pollRef.current = window.setTimeout(() => {
         pollJob(statusUrl).catch((err) => {
           setError((err as Error).message);
           setBusy(false);
         });
-      }, 900);
+      }, POLL_INTERVAL_MS);
     },
     [resolveApiUrl],
   );
@@ -706,10 +731,34 @@ function readError(error: JobStatus["error"]) {
   return typeof error === "string" ? error : error.message || null;
 }
 
-function formatEventTime(value?: string) {
-  if (!value) return "";
+function readLastEvent(events: CompareEvent[] | undefined) {
+  return events?.[events.length - 1];
+}
+
+function getStatusAgeMs(status: JobStatus) {
+  const timestamp = status.updated_at_utc || readLastEvent(status.events)?.at_utc;
+  const updatedAt = parseApiTime(timestamp);
+  if (!updatedAt) return null;
+  return Date.now() - updatedAt.getTime();
+}
+
+function parseApiTime(value?: string) {
+  if (!value) return null;
   const parsed = value.includes(" UTC") ? value.replace(" UTC", "Z") : value;
   const date = new Date(parsed);
-  if (Number.isNaN(date.getTime())) return "";
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDuration(ms: number) {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes <= 0) return `${seconds}s`;
+  return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+}
+
+function formatEventTime(value?: string) {
+  const date = parseApiTime(value);
+  if (!date) return "";
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
