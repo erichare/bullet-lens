@@ -1,9 +1,9 @@
 import type { X3pScan } from "./x3p";
+import { DEFAULT_API_BASE, resolveApiUrl } from "./api";
 
 const GROOVE_API_BASE =
-  process.env.NEXT_PUBLIC_BULLET_GROOVES_API_BASE || "http://127.0.0.1:8000";
+  process.env.NEXT_PUBLIC_BULLET_GROOVES_API_BASE || "";
 
-export const GROOVE_ENDPOINT = `${GROOVE_API_BASE.replace(/\/+$/, "")}/grooves`;
 export const GROOVE_REGION_COLOR = "#38bdf8";
 
 export interface GrooveRegion {
@@ -113,6 +113,7 @@ function findScanForRow(
 
 export async function requestGrooveDetection(
   scans: readonly X3pScan[],
+  apiBase = DEFAULT_API_BASE,
 ): Promise<unknown> {
   const form = new FormData();
   let fileCount = 0;
@@ -127,10 +128,13 @@ export async function requestGrooveDetection(
   form.append("groove_method", "auto");
   form.append("metadata", JSON.stringify({ case_id: "bullet-lens" }));
 
-  const res = await fetch(GROOVE_ENDPOINT, {
-    method: "POST",
-    body: form,
-  });
+  const res = await fetch(
+    resolveApiUrl(GROOVE_API_BASE || apiBase, "/grooves"),
+    {
+      method: "POST",
+      body: form,
+    },
+  );
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(

@@ -32,6 +32,7 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
   const setGrooveLoading = useApp((s) => s.setGrooveLoading);
   const setGrooveRegions = useApp((s) => s.setGrooveRegions);
   const scanGrooveRegions = useApp((s) => s.grooveRegionsByScan[scan.name]);
+  const apiBase = useApp((s) => s.apiBase);
   const hasGrooveRegions = Boolean(scanGrooveRegions?.length);
   const canDetectGrooves = scans.some((s) => s.sourceFile);
 
@@ -72,7 +73,7 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
     setGrooveLoading(true);
     setError(null);
     try {
-      const response = await requestGrooveDetection(scans);
+      const response = await requestGrooveDetection(scans, apiBase);
       const regions = extractGrooveRegions(response, scans);
       setGrooveRegions(regions, grooveRequestId(response));
 
@@ -90,6 +91,7 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
     }
   }, [
     canDetectGrooves,
+    apiBase,
     scans,
     setError,
     setGrooveLoading,

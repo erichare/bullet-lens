@@ -4,6 +4,7 @@ import { create } from "zustand";
 import type { X3pScan } from "./x3p";
 import type { ColormapName } from "./colormap";
 import type { GrooveRegionsByScan } from "./grooves";
+import { DEFAULT_API_BASE } from "./api";
 
 export type ViewMode = "land" | "bullet" | "compare" | "model";
 export type ViewPreset = "perspective" | "top" | "bottom" | "front" | "side";
@@ -41,6 +42,7 @@ interface AppState {
   viewResetTick: number; // incremented to retrigger transitions
   error: string | null;
   loading: boolean;
+  apiBase: string;
 
   addScans: (scans: X3pScan[]) => void;
   removeScan: (idx: number) => void;
@@ -68,6 +70,7 @@ interface AppState {
   setViewPreset: (v: ViewPreset) => void;
   setError: (e: string | null) => void;
   setLoading: (v: boolean) => void;
+  setApiBase: (v: string) => void;
 }
 
 export const useApp = create<AppState>((set) => ({
@@ -95,6 +98,7 @@ export const useApp = create<AppState>((set) => ({
   viewResetTick: 0,
   error: null,
   loading: false,
+  apiBase: DEFAULT_API_BASE,
 
   addScans: (newScans) =>
     set((s) => ({
@@ -156,4 +160,5 @@ export const useApp = create<AppState>((set) => ({
     set((s) => ({ viewPreset, viewResetTick: s.viewResetTick + 1 })),
   setError: (error) => set({ error }),
   setLoading: (loading) => set({ loading }),
+  setApiBase: (apiBase) => set({ apiBase }),
 }));

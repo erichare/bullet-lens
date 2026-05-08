@@ -79,9 +79,10 @@ CI runs typecheck → lint → test → build on every push and PR; see
 ## Deploying
 
 The viewer is a client-side Next.js app. It also includes a thin allowlisted
-`/api/demo/[id]` proxy for the NIST demo files, and Model compare calls the
-comparison API configured by `NEXT_PUBLIC_BULLET_COMPARE_API_BASE` or the URL
-typed into the model panel.
+`/api/demo/[id]` proxy for the NIST demo files. Model compare and Land(s)
+detection call the API configured by `NEXT_PUBLIC_BULLET_COMPARE_API_BASE` or
+the URL typed into the model panel. Set `NEXT_PUBLIC_BULLET_GROOVES_API_BASE`
+only if groove detection lives at a different API base.
 
 Deploy to [Vercel](https://vercel.com/) with zero config for the viewer and
 demo proxy:

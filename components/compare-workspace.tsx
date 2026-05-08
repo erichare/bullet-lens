@@ -12,11 +12,9 @@ import {
 } from "lucide-react";
 
 import { useApp } from "@/lib/store";
+import { resolveApiUrl as buildApiUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_API_BASE =
-  process.env.NEXT_PUBLIC_BULLET_COMPARE_API_BASE ||
-  "https://bulletanalyzrresearch-production.up.railway.app";
 const POLL_INTERVAL_MS = 900;
 const STALE_JOB_WARNING_MS = 90_000;
 
@@ -82,8 +80,7 @@ const tabs: Array<{ id: TabId; label: string; icon: ReactNode }> = [
 ];
 
 export default function CompareWorkspace() {
-  const { scans, compareIndexA, compareIndexB } = useApp();
-  const [apiBase, setApiBase] = useState(DEFAULT_API_BASE);
+  const { scans, compareIndexA, compareIndexB, apiBase, setApiBase } = useApp();
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [metadata, setMetadata] = useState("{}");
@@ -118,18 +115,11 @@ export default function CompareWorkspace() {
     }));
   }, [filesA.length, filesB.length, busy, result]);
 
-  const normalizedApiBase = useMemo(
-    () => apiBase.trim().replace(/\/+$/, ""),
-    [apiBase],
-  );
-
   const resolveApiUrl = useCallback(
     (path: string) => {
-      if (/^https?:\/\//i.test(path)) return path;
-      const base = normalizedApiBase || window.location.origin;
-      return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+      return buildApiUrl(apiBase, path, window.location.origin);
     },
-    [normalizedApiBase],
+    [apiBase],
   );
 
   const clearPoll = useCallback(() => {
