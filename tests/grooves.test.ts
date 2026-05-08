@@ -1,9 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { extractGrooveRegions, grooveRegionToDisplayRect } from "@/lib/grooves";
+import {
+  buildGrooveCacheKey,
+  extractGrooveRegions,
+  grooveRegionToDisplayRect,
+} from "@/lib/grooves";
 import { parseX3p } from "@/lib/x3p";
 import { asFile, buildSyntheticX3p } from "./fixtures/build-x3p";
 
 describe("groove region extraction", () => {
+  it("builds an order-insensitive cache key for the loaded bullet files", async () => {
+    const aBytes = buildSyntheticX3p({ sizeX: 40, sizeY: 10 }).zipBytes;
+    const bBytes = buildSyntheticX3p({ sizeX: 30, sizeY: 12 }).zipBytes;
+    const scanA = await parseX3p(asFile(aBytes, "Land 1.x3p"));
+    const scanB = await parseX3p(asFile(bBytes, "Land 2.x3p"));
+
+    expect(buildGrooveCacheKey([scanA, scanB])).toBe(
+      buildGrooveCacheKey([scanB, scanA]),
+    );
+    expect(buildGrooveCacheKey([scanA, scanB])).not.toBe(
+      buildGrooveCacheKey([scanA]),
+    );
+  });
+
   it("extracts selected groove rows by filename", async () => {
     const { zipBytes } = buildSyntheticX3p({ sizeX: 40, sizeY: 10 });
     const scan = await parseX3p(asFile(zipBytes, "Land 1.x3p"));

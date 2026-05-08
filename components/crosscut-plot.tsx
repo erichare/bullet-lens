@@ -9,7 +9,10 @@ import { flattenSignature } from "@/lib/flatten";
 import { useApp } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import {
+  buildGrooveCacheKey,
   extractGrooveRegions,
+  GROOVE_REGION_COLOR,
+  grooveRegionToDisplayRect,
   grooveRequestId,
   requestGrooveDetection,
 } from "@/lib/grooves";
@@ -32,8 +35,14 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
   const setGrooveLoading = useApp((s) => s.setGrooveLoading);
   const setGrooveRegions = useApp((s) => s.setGrooveRegions);
   const scanGrooveRegions = useApp((s) => s.grooveRegionsByScan[scan.name]);
+  const grooveVisible = useApp((s) => s.grooveVisible);
+  const setGrooveVisible = useApp((s) => s.setGrooveVisible);
+  const showCachedGrooveRegions = useApp((s) => s.showCachedGrooveRegions);
+  const grooveCache = useApp((s) => s.grooveCache);
   const apiBase = useApp((s) => s.apiBase);
-  const hasGrooveRegions = Boolean(scanGrooveRegions?.length);
+  const grooveCacheKey = useMemo(() => buildGrooveCacheKey(scans), [scans]);
+  const hasGrooveRegions = grooveVisible && Boolean(scanGrooveRegions?.length);
+  const hasCachedGrooves = Boolean(grooveCache[grooveCacheKey]);
   const canDetectGrooves = scans.some((s) => s.sourceFile);
 
   const rawSeries = useMemo(() => extractCrosscut(scan, yFrac), [scan, yFrac]);
@@ -46,6 +55,12 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
     if (flat.x.length === 0) return rawSeries;
     return { x: flat.x, z: flat.z, yMeters: rawSeries.yMeters };
   }, [rawSeries, flatten]);
+  const grooveRects = useMemo(() => {
+    if (!grooveVisible || !scanGrooveRegions?.length) return [];
+    return scanGrooveRegions.map((region) =>
+      grooveRegionToDisplayRect(region, scan),
+    );
+  }, [grooveVisible, scanGrooveRegions, scan]);
 
   const padRef = useRef({ l: 48, r: 12, t: 14, b: 28 });
 
@@ -65,6 +80,15 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
   );
 
   const handleDetectLands = useCallback(async () => {
+    if (grooveVisible) {
+      setGrooveVisible(false);
+      return;
+    }
+
+    if (hasCachedGrooves && showCachedGrooveRegions(grooveCacheKey)) {
+      return;
+    }
+
     if (!canDetectGrooves) {
       setError("No original .x3p files are available for land detection.");
       return;
@@ -75,7 +99,7 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
     try {
       const response = await requestGrooveDetection(scans, apiBase);
       const regions = extractGrooveRegions(response, scans);
-      setGrooveRegions(regions, grooveRequestId(response));
+      setGrooveRegions(regions, grooveRequestId(response), grooveCacheKey);
 
       const regionCount = Object.values(regions).reduce(
         (sum, scanRegions) => sum + scanRegions.length,
@@ -92,10 +116,15 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
   }, [
     canDetectGrooves,
     apiBase,
+    grooveCacheKey,
+    grooveVisible,
+    hasCachedGrooves,
     scans,
     setError,
     setGrooveLoading,
     setGrooveRegions,
+    setGrooveVisible,
+    showCachedGrooveRegions,
   ]);
 
   useEffect(() => {
@@ -156,6 +185,32 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
         ctx.moveTo(pad.l, y);
         ctx.lineTo(pad.l + pw, y);
         ctx.stroke();
+      }
+
+      if (grooveRects.length) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(pad.l, pad.t, pw, ph);
+        ctx.clip();
+        for (const rect of grooveRects) {
+          const x0 = pad.l + rect.x0 * pw;
+          const x1 = pad.l + rect.x1 * pw;
+          const barX = Math.min(x0, x1);
+          const barW = Math.max(1, Math.abs(x1 - x0));
+
+          ctx.fillStyle = "rgba(56, 189, 248, 0.16)";
+          ctx.fillRect(barX, pad.t, barW, ph);
+
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.86)";
+          ctx.lineWidth = 1.25;
+          ctx.beginPath();
+          ctx.moveTo(barX, pad.t);
+          ctx.lineTo(barX, pad.t + ph);
+          ctx.moveTo(barX + barW, pad.t);
+          ctx.lineTo(barX + barW, pad.t + ph);
+          ctx.stroke();
+        }
+        ctx.restore();
       }
 
       // axis labels
@@ -227,7 +282,9 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
       }
 
       // frame
-      ctx.strokeStyle = "rgba(200, 183, 145, 0.22)";
+      ctx.strokeStyle = grooveRects.length
+        ? `${GROOVE_REGION_COLOR}66`
+        : "rgba(200, 183, 145, 0.22)";
       ctx.strokeRect(pad.l, pad.t, pw, ph);
     };
 
@@ -235,7 +292,7 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
     const ro = new ResizeObserver(draw);
     ro.observe(canvas);
     return () => ro.disconnect();
-  }, [series, colormap, highlightX]);
+  }, [series, colormap, highlightX, grooveRects]);
 
   return (
     <div className="relative h-full w-full">
@@ -265,11 +322,19 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
             "flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] transition sm:px-2",
             hasGrooveRegions
               ? "border-sky-400/60 bg-sky-400/15 text-sky-100"
+              : hasCachedGrooves
+                ? "border-sky-400/40 bg-black/30 text-slate-300 hover:border-sky-400/60 hover:bg-sky-400/10 hover:text-sky-100"
               : "border-sky-400/35 bg-black/30 text-slate-300 hover:border-sky-400/60 hover:bg-sky-400/10 hover:text-sky-100",
             (grooveLoading || !canDetectGrooves) &&
               "cursor-not-allowed opacity-60 hover:bg-black/30 hover:text-slate-300",
           )}
-          title="Detect land regions with the local grooves endpoint."
+          title={
+            grooveVisible
+              ? "Hide cached land regions."
+              : hasCachedGrooves
+                ? "Show cached land regions."
+                : "Detect land regions with the configured API."
+          }
         >
           <Layers className="h-3 w-3" />
           {grooveLoading ? "Land(s)..." : "Land(s)"}

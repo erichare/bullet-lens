@@ -42,6 +42,7 @@ function LandContent({
   const setCrosscutY = useApp((s) => s.setCrosscutY);
   const setHighlightX = useApp((s) => s.setHighlightX);
   const highlightX = useApp((s) => s.highlightX);
+  const grooveVisible = useApp((s) => s.grooveVisible);
   const grooveRegions = useApp(
     (s) => s.grooveRegionsByScan[scan.name] ?? EMPTY_GROOVE_REGIONS,
   );
@@ -86,16 +87,17 @@ function LandContent({
         />
       </mesh>
 
-      {grooveRegions.map((region, index) => (
-        <GrooveRegionOverlay
-          key={`${region.scanName}-${region.leftGroove}-${region.rightGroove}-${index}`}
-          region={region}
-          scan={scan}
-          width={build.width}
-          height={build.height}
-          z={overlayZ}
-        />
-      ))}
+      {grooveVisible &&
+        grooveRegions.map((region, index) => (
+          <GrooveRegionOverlay
+            key={`${region.scanName}-${region.leftGroove}-${region.rightGroove}-${index}`}
+            region={region}
+            scan={scan}
+            width={build.width}
+            height={build.height}
+            z={overlayZ}
+          />
+        ))}
 
       {/* Y crosscut indicator — horizontal line across width */}
       <mesh position={[0, yLine, 0]} rotation={[Math.PI / 2, 0, 0]}>

@@ -23,6 +23,11 @@ export interface GrooveRegion {
 
 export type GrooveRegionsByScan = Record<string, GrooveRegion[]>;
 
+export interface GrooveDetectionCacheEntry {
+  regions: GrooveRegionsByScan;
+  requestId: string | null;
+}
+
 export interface GrooveRegionRect {
   x0: number;
   x1: number;
@@ -30,6 +35,22 @@ export interface GrooveRegionRect {
   y1: number;
   crosscutX?: number;
   crosscutY?: number;
+}
+
+export function buildGrooveCacheKey(scans: readonly X3pScan[]): string {
+  return scans
+    .map((scan) => {
+      const file = scan.sourceFile;
+      return [
+        file?.name ?? scan.name,
+        file?.size ?? scan.z.length,
+        file?.lastModified ?? "",
+        scan.orientation.sourceSizeX,
+        scan.orientation.sourceSizeY,
+      ].join(":");
+    })
+    .sort()
+    .join("|");
 }
 
 type UnknownRecord = Record<string, unknown>;

@@ -3,7 +3,10 @@
 import { create } from "zustand";
 import type { X3pScan } from "./x3p";
 import type { ColormapName } from "./colormap";
-import type { GrooveRegionsByScan } from "./grooves";
+import type {
+  GrooveDetectionCacheEntry,
+  GrooveRegionsByScan,
+} from "./grooves";
 import { DEFAULT_API_BASE } from "./api";
 
 export type ViewMode = "land" | "bullet" | "compare" | "model";
@@ -38,6 +41,9 @@ interface AppState {
   grooveRegionsByScan: GrooveRegionsByScan;
   grooveRequestId: string | null;
   grooveLoading: boolean;
+  grooveVisible: boolean;
+  grooveCacheKey: string | null;
+  grooveCache: Record<string, GrooveDetectionCacheEntry>;
   viewPreset: ViewPreset;
   viewResetTick: number; // incremented to retrigger transitions
   error: string | null;
@@ -65,8 +71,11 @@ interface AppState {
   setGrooveRegions: (
     regions: GrooveRegionsByScan,
     requestId?: string | null,
+    cacheKey?: string | null,
   ) => void;
   setGrooveLoading: (v: boolean) => void;
+  setGrooveVisible: (v: boolean) => void;
+  showCachedGrooveRegions: (cacheKey: string) => boolean;
   setViewPreset: (v: ViewPreset) => void;
   setError: (e: string | null) => void;
   setLoading: (v: boolean) => void;
@@ -94,6 +103,9 @@ export const useApp = create<AppState>((set) => ({
   grooveRegionsByScan: {},
   grooveRequestId: null,
   grooveLoading: false,
+  grooveVisible: false,
+  grooveCacheKey: null,
+  grooveCache: {},
   viewPreset: "perspective",
   viewResetTick: 0,
   error: null,
@@ -108,6 +120,8 @@ export const useApp = create<AppState>((set) => ({
       highlightX: null,
       grooveRegionsByScan: {},
       grooveRequestId: null,
+      grooveVisible: false,
+      grooveCacheKey: null,
     })),
   removeScan: (idx) =>
     set((s) => {
@@ -125,6 +139,8 @@ export const useApp = create<AppState>((set) => ({
         activeIndex: Math.min(s.activeIndex, Math.max(0, next.length - 1)),
         mode: nextMode,
         grooveRegionsByScan,
+        grooveVisible: false,
+        grooveCacheKey: null,
       };
     }),
   clearScans: () =>
@@ -136,6 +152,9 @@ export const useApp = create<AppState>((set) => ({
       grooveRegionsByScan: {},
       grooveRequestId: null,
       grooveLoading: false,
+      grooveVisible: false,
+      grooveCacheKey: null,
+      grooveCache: {},
     }),
   setActiveIndex: (i) => set({ activeIndex: i }),
   setMode: (mode) => set({ mode }),
@@ -153,9 +172,43 @@ export const useApp = create<AppState>((set) => ({
   setCompareFlipA: (compareFlipA) => set({ compareFlipA }),
   setCompareFlipB: (compareFlipB) => set({ compareFlipB }),
   setFlatten: (flatten) => set({ flatten }),
-  setGrooveRegions: (grooveRegionsByScan, grooveRequestId = null) =>
-    set({ grooveRegionsByScan, grooveRequestId }),
+  setGrooveRegions: (
+    grooveRegionsByScan,
+    grooveRequestId = null,
+    grooveCacheKey = null,
+  ) =>
+    set((s) => ({
+      grooveRegionsByScan,
+      grooveRequestId,
+      grooveVisible: true,
+      grooveCacheKey,
+      grooveCache: grooveCacheKey
+        ? {
+            ...s.grooveCache,
+            [grooveCacheKey]: {
+              regions: grooveRegionsByScan,
+              requestId: grooveRequestId,
+            },
+          }
+        : s.grooveCache,
+    })),
   setGrooveLoading: (grooveLoading) => set({ grooveLoading }),
+  setGrooveVisible: (grooveVisible) => set({ grooveVisible }),
+  showCachedGrooveRegions: (grooveCacheKey) => {
+    let found = false;
+    set((s) => {
+      const cached = s.grooveCache[grooveCacheKey];
+      if (!cached) return {};
+      found = true;
+      return {
+        grooveRegionsByScan: cached.regions,
+        grooveRequestId: cached.requestId,
+        grooveCacheKey,
+        grooveVisible: true,
+      };
+    });
+    return found;
+  },
   setViewPreset: (viewPreset) =>
     set((s) => ({ viewPreset, viewResetTick: s.viewResetTick + 1 })),
   setError: (error) => set({ error }),
