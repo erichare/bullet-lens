@@ -36,26 +36,81 @@ describe("groove region extraction", () => {
     });
   });
 
-  it("maps source X boundaries to displayed X for landscape scans", async () => {
-    const { zipBytes } = buildSyntheticX3p({ sizeX: 40, sizeY: 10 });
+  it("maps micron source X boundaries to displayed X for landscape scans", async () => {
+    const increment = 1e-6;
+    const { zipBytes } = buildSyntheticX3p({ sizeX: 401, sizeY: 101, increment });
     const scan = await parseX3p(asFile(zipBytes, "landscape.x3p"));
     const rect = grooveRegionToDisplayRect(
       {
         scanName: scan.name,
-        leftGroove: 10,
-        rightGroove: 30,
+        leftGroove: 100,
+        rightGroove: 300,
+        crosscutY: 25,
       },
       scan,
     );
 
-    expect(rect.x0).toBeCloseTo(10 / 39);
-    expect(rect.x1).toBeCloseTo(30 / 39);
+    expect(rect.x0).toBeCloseTo(100 / 400);
+    expect(rect.x1).toBeCloseTo(300 / 400);
     expect(rect.y0).toBe(0);
     expect(rect.y1).toBe(1);
+    expect(rect.crosscutY).toBeCloseTo(25 / 100);
+    expect(scan.orientation.sourceWidthMeters).toBeCloseTo(400 * increment, 12);
+  });
+
+  it("prefers land region extents from the selected detection", async () => {
+    const increment = 0.645e-6;
+    const { zipBytes } = buildSyntheticX3p({
+      sizeX: 4001,
+      sizeY: 501,
+      increment,
+    });
+    const scan = await parseX3p(asFile(zipBytes, "carney.x3p"));
+    const response = {
+      groove_detections: {
+        selected: { key: "automatic_old" },
+        automatic_old: {
+          grooves: [
+            {
+              filename: "carney.x3p",
+              left_groove: 426.0225,
+              right_groove: 1931.4525,
+              crosscut_y: 151.575,
+            },
+          ],
+          land_regions: [
+            {
+              filename: "carney.x3p",
+              left_groove: 426.0225,
+              right_groove: 1931.4525,
+              crosscut_y: 151.575,
+              region_x_start: 426.0225,
+              region_x_end: 1931.4525,
+              region_y_start: 151.575,
+              region_y_end: 151.575,
+            },
+          ],
+        },
+      },
+    };
+
+    const regions = extractGrooveRegions(response, [scan]);
+    const rect = grooveRegionToDisplayRect(regions["carney.x3p"][0], scan);
+
+    expect(regions["carney.x3p"]).toHaveLength(1);
+    expect(rect.x0).toBeCloseTo(426.0225 / (4000 * 0.645));
+    expect(rect.x1).toBeCloseTo(1931.4525 / (4000 * 0.645));
+    expect(rect.y0).toBe(0);
+    expect(rect.y1).toBe(1);
+    expect(rect.crosscutY).toBeCloseTo(151.575 / (500 * 0.645));
   });
 
   it("maps source X boundaries to displayed Y for auto-transposed ribbons", async () => {
-    const { zipBytes } = buildSyntheticX3p({ sizeX: 10, sizeY: 40 });
+    const { zipBytes } = buildSyntheticX3p({
+      sizeX: 10,
+      sizeY: 40,
+      increment: 1e-6,
+    });
     const scan = await parseX3p(asFile(zipBytes, "ribbon.x3p"));
     const rect = grooveRegionToDisplayRect(
       {

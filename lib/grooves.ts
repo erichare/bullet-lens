@@ -13,6 +13,10 @@ export interface GrooveRegion {
   leftGroove: number;
   rightGroove: number;
   crosscutY?: number;
+  regionXStart?: number;
+  regionXEnd?: number;
+  regionYStart?: number;
+  regionYEnd?: number;
   source?: string;
   method?: string;
 }
@@ -76,14 +80,23 @@ function collectGrooveRows(value: unknown, rows: UnknownRecord[]): void {
 
   const left = numericValue(record, ["left_groove", "left", "x0", "start"]);
   const right = numericValue(record, ["right_groove", "right", "x1", "end"]);
-  if (left !== undefined && right !== undefined) {
+  const regionXStart = numericValue(record, ["region_x_start"]);
+  const regionXEnd = numericValue(record, ["region_x_end"]);
+  if (
+    (left !== undefined && right !== undefined) ||
+    (regionXStart !== undefined && regionXEnd !== undefined)
+  ) {
     rows.push(record);
     return;
   }
 
-  collectGrooveRows(record.grooves, rows);
-  collectGrooveRows(record.regions, rows);
+  const beforeRegions = rows.length;
   collectGrooveRows(record.land_regions, rows);
+  collectGrooveRows(record.regions, rows);
+  if (rows.length > beforeRegions) return;
+
+  collectGrooveRows(record.rows, rows);
+  collectGrooveRows(record.grooves, rows);
 }
 
 function findScanForRow(
@@ -175,8 +188,20 @@ export function extractGrooveRegions(
     const scan = findScanForRow(row, scans);
     if (!scan) continue;
 
-    const left = numericValue(row, ["left_groove", "left", "x0", "start"]);
-    const right = numericValue(row, ["right_groove", "right", "x1", "end"]);
+    const left = numericValue(row, [
+      "region_x_start",
+      "left_groove",
+      "left",
+      "x0",
+      "start",
+    ]);
+    const right = numericValue(row, [
+      "region_x_end",
+      "right_groove",
+      "right",
+      "x1",
+      "end",
+    ]);
     if (left === undefined || right === undefined) continue;
 
     const region: GrooveRegion = {
@@ -186,6 +211,10 @@ export function extractGrooveRegions(
       leftGroove: left,
       rightGroove: right,
       crosscutY: numericValue(row, ["crosscut_y", "y", "row"]),
+      regionXStart: numericValue(row, ["region_x_start"]),
+      regionXEnd: numericValue(row, ["region_x_end"]),
+      regionYStart: numericValue(row, ["region_y_start"]),
+      regionYEnd: numericValue(row, ["region_y_end"]),
       source: stringValue(row, "source"),
       method: stringValue(row, "boundary_method") ?? stringValue(row, "groove_method"),
     };
@@ -194,36 +223,83 @@ export function extractGrooveRegions(
   return byScan;
 }
 
-function coordinateToFraction(value: number, sourceSize: number): number {
-  return Math.min(1, Math.max(0, value / Math.max(1, sourceSize - 1)));
+function clampFraction(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+function coordinateToFraction(
+  value: number,
+  sourceSize: number,
+  sourceExtentMeters: number,
+): number {
+  const sourceExtentMicrons = Math.abs(sourceExtentMeters * 1e6);
+  if (value >= 0 && value <= 1) return value;
+  if (sourceExtentMicrons > 0 && value <= sourceExtentMicrons * 1.05) {
+    return clampFraction(value / sourceExtentMicrons);
+  }
+  return clampFraction(value / Math.max(1, sourceSize - 1));
+}
+
+function coordinateRangeToFractions(
+  start: number,
+  end: number,
+  sourceSize: number,
+  sourceExtentMeters: number,
+): [number, number] {
+  const sourceExtentMicrons = Math.abs(sourceExtentMeters * 1e6);
+  const maxAbs = Math.max(Math.abs(start), Math.abs(end));
+  let denominator = Math.max(1, sourceSize - 1);
+  if (maxAbs > 0 && maxAbs <= 1) denominator = 1;
+  else if (sourceExtentMicrons > 0 && maxAbs <= sourceExtentMicrons * 1.05) {
+    denominator = sourceExtentMicrons;
+  }
+  const a = clampFraction(start / denominator);
+  const b = clampFraction(end / denominator);
+  return [Math.min(a, b), Math.max(a, b)];
 }
 
 export function grooveRegionToDisplayRect(
   region: GrooveRegion,
   scan: X3pScan,
 ): GrooveRegionRect {
-  const left = coordinateToFraction(
-    region.leftGroove,
+  const [sourceX0, sourceX1] = coordinateRangeToFractions(
+    region.regionXStart ?? region.leftGroove,
+    region.regionXEnd ?? region.rightGroove,
     scan.orientation.sourceSizeX,
+    scan.orientation.sourceWidthMeters,
   );
-  const right = coordinateToFraction(
-    region.rightGroove,
-    scan.orientation.sourceSizeX,
-  );
-  const low = Math.min(left, right);
-  const high = Math.max(left, right);
+  const hasRegionY =
+    region.regionYStart !== undefined &&
+    region.regionYEnd !== undefined &&
+    region.regionYStart !== region.regionYEnd;
+  const [sourceY0, sourceY1] = hasRegionY
+    ? coordinateRangeToFractions(
+        region.regionYStart!,
+        region.regionYEnd!,
+        scan.orientation.sourceSizeY,
+        scan.orientation.sourceHeightMeters,
+      )
+    : [0, 1];
 
   if (scan.orientation.transposed) {
     const crosscutX =
       region.crosscutY === undefined
         ? undefined
-        : coordinateToFraction(region.crosscutY, scan.orientation.sourceSizeY);
-    return { x0: 0, x1: 1, y0: low, y1: high, crosscutX };
+        : coordinateToFraction(
+            region.crosscutY,
+            scan.orientation.sourceSizeY,
+            scan.orientation.sourceHeightMeters,
+          );
+    return { x0: sourceY0, x1: sourceY1, y0: sourceX0, y1: sourceX1, crosscutX };
   }
 
   const crosscutY =
     region.crosscutY === undefined
       ? undefined
-      : coordinateToFraction(region.crosscutY, scan.orientation.sourceSizeY);
-  return { x0: low, x1: high, y0: 0, y1: 1, crosscutY };
+      : coordinateToFraction(
+          region.crosscutY,
+          scan.orientation.sourceSizeY,
+          scan.orientation.sourceHeightMeters,
+        );
+  return { x0: sourceX0, x1: sourceX1, y0: sourceY0, y1: sourceY1, crosscutY };
 }
