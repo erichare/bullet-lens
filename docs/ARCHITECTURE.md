@@ -60,7 +60,10 @@ Zustand store (holds state).
 
 The only I/O-adjacent module. Exposes:
 
-- `parseX3p(file: File): Promise<X3pScan>` — the one-shot parser.
+- `parseX3p(file: File): Promise<X3pScan>` — the one-shot parser. By default
+  it orients loaded scans so the profile-extracted X axis is the longer
+  physical lateral axis; pass `{ profileAxis: "source" }` only for diagnostics
+  that need the raw matrix orientation.
 - `decimate(scan, maxPoints?)` — returns a downsampled regular grid
   `{ nx, ny, z, strideX, strideY }` to keep mesh sizes GPU-friendly
   (default cap: 400 000 cells).
@@ -107,9 +110,9 @@ Pure functions that turn an `X3pScan` into a `THREE.BufferGeometry`:
   colored. This is why the bullet looks round at 5× but the striae are
   still clearly readable.
 
-- **`extractCrosscut(scan, yFrac)`** — one row of the Z matrix at a given
-  fractional Y, with X positions in meters. Used by the crosscut plot and,
-  indirectly, by click handling in the 3D viewers.
+- **`extractCrosscut(scan, yFrac)`** — one row of the oriented Z matrix at a
+  given fractional Y, with X positions in meters. Used by the crosscut plot
+  and, indirectly, by click handling in the 3D viewers.
 
 ### `lib/flatten.ts`
 

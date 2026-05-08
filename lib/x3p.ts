@@ -38,7 +38,20 @@ export interface X3pScan {
   validCount: number;
 }
 
+export interface ParseX3pOptions {
+  /**
+   * By default, loaded scans are oriented so the profile/crosscut axis (X) is
+   * the physically longer lateral axis. Use "source" for diagnostics that need
+   * the file's raw matrix orientation.
+   */
+  profileAxis?: "long" | "source";
+}
+
 const TEXT_DECODER = new TextDecoder("utf-8");
+
+function axisExtentMeters(size: number, increment: number): number {
+  return Math.abs((size - 1) * (increment || 1));
+}
 
 function parseAxis(el: Element | null): X3pAxis {
   if (!el) {
@@ -182,7 +195,10 @@ function decodeTextZ(xml: string, count: number): Float32Array {
   return out;
 }
 
-export async function parseX3p(file: File): Promise<X3pScan> {
+export async function parseX3p(
+  file: File,
+  options: ParseX3pOptions = {},
+): Promise<X3pScan> {
   const buf = new Uint8Array(await file.arrayBuffer());
   let zip: Record<string, Uint8Array>;
   try {
@@ -256,29 +272,26 @@ export async function parseX3p(file: File): Promise<X3pScan> {
     zMax = 0;
   }
 
-  return {
+  const scan = {
     name: file.name,
     sourceFile: file,
     meta,
     z,
-    widthMeters: (meta.sizeX - 1) * incX,
-    heightMeters: (meta.sizeY - 1) * incY,
+    widthMeters: axisExtentMeters(meta.sizeX, incX),
+    heightMeters: axisExtentMeters(meta.sizeY, incY),
     zMin,
     zMax,
     zMean: validCount ? sum / validCount : 0,
     validCount,
   };
+
+  return options.profileAxis === "source" ? scan : orientProfileAxisLong(scan);
 }
 
 /**
  * Swap the X and Y axes of a parsed scan. The returned scan describes the same
  * surface with rows and columns exchanged: striae that used to run along rows
  * now run along columns, and vice versa.
- *
- * NBTRD-distributed Hamby scans, for example, are stored with striae running
- * along the matrix's X axis, while this app renders striae vertically (along
- * Y). Transposing on load lines up the orientation without changing the
- * renderer.
  */
 export function transposeScan(scan: X3pScan): X3pScan {
   const { sizeX, sizeY } = scan.meta;
@@ -303,6 +316,16 @@ export function transposeScan(scan: X3pScan): X3pScan {
     widthMeters: scan.heightMeters,
     heightMeters: scan.widthMeters,
   };
+}
+
+/**
+ * Keep X as the profile-extracted axis. Ribbon/strip scans are often stored
+ * "portrait" (short X, long Y), which makes row-profile extraction walk across
+ * the land width. Transpose those scans so extracted profiles follow the long
+ * physical axis instead.
+ */
+export function orientProfileAxisLong(scan: X3pScan): X3pScan {
+  return scan.heightMeters > scan.widthMeters ? transposeScan(scan) : scan;
 }
 
 /**

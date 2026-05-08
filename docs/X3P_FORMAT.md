@@ -168,6 +168,13 @@ lookup lowercases the entry name before matching.
 If `CZ.DataType` is missing, we default to `D` (float64). This matches the
 x3p convention for bullet-forensics datasets.
 
+### Profile-axis orientation
+
+Some ribbon/strip scans store the long physical dimension in matrix Y. The app
+extracts profiles along X, so `parseX3p()` transposes those portrait scans by
+default when `heightMeters > widthMeters`. Pass `{ profileAxis: "source" }` for
+diagnostics that need the raw file orientation.
+
 ---
 
 ## What we explicitly do *not* do

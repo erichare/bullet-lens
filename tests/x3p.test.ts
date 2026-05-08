@@ -88,6 +88,31 @@ describe("parseX3p", () => {
     expect(scan.meta.creationDate).toBe("2024-01-15T12:00:00");
   });
 
+  it("orients portrait scans so X is the long profile axis", async () => {
+    const { zipBytes, increment } = buildSyntheticX3p({
+      sizeX: 8,
+      sizeY: 12,
+    });
+    const scan = await parseX3p(asFile(zipBytes, "ribbon.x3p"));
+
+    expect(scan.meta.sizeX).toBe(12);
+    expect(scan.meta.sizeY).toBe(8);
+    expect(scan.widthMeters).toBeCloseTo((12 - 1) * increment, 12);
+    expect(scan.heightMeters).toBeCloseTo((8 - 1) * increment, 12);
+    expect(scan.widthMeters).toBeGreaterThan(scan.heightMeters);
+  });
+
+  it("can preserve the source matrix orientation for diagnostics", async () => {
+    const { zipBytes } = buildSyntheticX3p({ sizeX: 8, sizeY: 12 });
+    const scan = await parseX3p(asFile(zipBytes, "source.x3p"), {
+      profileAxis: "source",
+    });
+
+    expect(scan.meta.sizeX).toBe(8);
+    expect(scan.meta.sizeY).toBe(12);
+    expect(scan.heightMeters).toBeGreaterThan(scan.widthMeters);
+  });
+
   it("throws on non-ZIP input", async () => {
     const bogus = new Uint8Array([1, 2, 3, 4, 5]);
     await expect(parseX3p(asFile(bogus, "bogus.x3p"))).rejects.toThrow(

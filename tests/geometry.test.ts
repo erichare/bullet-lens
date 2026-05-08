@@ -39,6 +39,19 @@ describe("extractCrosscut", () => {
     const last = extractCrosscut(scan, 1);
     expect(hi.yMeters).toBe(last.yMeters);
   });
+
+  it("extracts profile rows along an auto-oriented ribbon's long axis", async () => {
+    const { zipBytes, increment } = buildSyntheticX3p({
+      sizeX: 10,
+      sizeY: 40,
+    });
+    const scan = await parseX3p(asFile(zipBytes, "portrait-ribbon.x3p"));
+    const row = extractCrosscut(scan, 0.5);
+
+    expect(scan.widthMeters).toBeGreaterThan(scan.heightMeters);
+    expect(row.x.length).toBe(40);
+    expect(row.x[row.x.length - 1]).toBeCloseTo((40 - 1) * increment, 10);
+  });
 });
 
 describe("buildLandGeometry", () => {
