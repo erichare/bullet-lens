@@ -1,13 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Waves } from "lucide-react";
+import { Layers, Waves } from "lucide-react";
 import type { X3pScan } from "@/lib/x3p";
 import { extractCrosscut } from "@/lib/geometry";
 import { sampleColor, type ColormapName } from "@/lib/colormap";
 import { flattenSignature } from "@/lib/flatten";
 import { useApp } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import {
+  extractGrooveRegions,
+  grooveRequestId,
+  requestGrooveDetection,
+} from "@/lib/grooves";
 
 interface Props {
   scan: X3pScan;
@@ -21,6 +26,14 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
   const setHighlightX = useApp((s) => s.setHighlightX);
   const flatten = useApp((s) => s.flatten);
   const setFlatten = useApp((s) => s.setFlatten);
+  const scans = useApp((s) => s.scans);
+  const setError = useApp((s) => s.setError);
+  const grooveLoading = useApp((s) => s.grooveLoading);
+  const setGrooveLoading = useApp((s) => s.setGrooveLoading);
+  const setGrooveRegions = useApp((s) => s.setGrooveRegions);
+  const scanGrooveRegions = useApp((s) => s.grooveRegionsByScan[scan.name]);
+  const hasGrooveRegions = Boolean(scanGrooveRegions?.length);
+  const canDetectGrooves = scans.some((s) => s.sourceFile);
 
   const rawSeries = useMemo(() => extractCrosscut(scan, yFrac), [scan, yFrac]);
   const series = useMemo(() => {
@@ -49,6 +62,39 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
     },
     [setHighlightX],
   );
+
+  const handleDetectLands = useCallback(async () => {
+    if (!canDetectGrooves) {
+      setError("No original .x3p files are available for land detection.");
+      return;
+    }
+
+    setGrooveLoading(true);
+    setError(null);
+    try {
+      const response = await requestGrooveDetection(scans);
+      const regions = extractGrooveRegions(response, scans);
+      setGrooveRegions(regions, grooveRequestId(response));
+
+      const regionCount = Object.values(regions).reduce(
+        (sum, scanRegions) => sum + scanRegions.length,
+        0,
+      );
+      if (!regionCount) {
+        setError("The grooves endpoint returned no land boundaries to draw.");
+      }
+    } catch (err) {
+      setError((err as Error).message || "Could not detect land regions.");
+    } finally {
+      setGrooveLoading(false);
+    }
+  }, [
+    canDetectGrooves,
+    scans,
+    setError,
+    setGrooveLoading,
+    setGrooveRegions,
+  ]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -209,6 +255,22 @@ export default function CrosscutPlot({ scan, yFrac, colormap }: Props) {
         >
           <Waves className="h-3 w-3" />
           Flatten
+        </button>
+        <button
+          onClick={handleDetectLands}
+          disabled={grooveLoading || !canDetectGrooves}
+          className={cn(
+            "flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] transition sm:px-2",
+            hasGrooveRegions
+              ? "border-sky-400/60 bg-sky-400/15 text-sky-100"
+              : "border-sky-400/35 bg-black/30 text-slate-300 hover:border-sky-400/60 hover:bg-sky-400/10 hover:text-sky-100",
+            (grooveLoading || !canDetectGrooves) &&
+              "cursor-not-allowed opacity-60 hover:bg-black/30 hover:text-slate-300",
+          )}
+          title="Detect land regions with the local grooves endpoint."
+        >
+          <Layers className="h-3 w-3" />
+          {grooveLoading ? "Land(s)..." : "Land(s)"}
         </button>
         <div className="pointer-events-none truncate text-[10px] text-slate-400 sm:text-xs">
           y = {(series.yMeters * 1000).toFixed(3)} mm

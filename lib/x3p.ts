@@ -21,11 +21,21 @@ export interface X3pMetadata {
   probingSystem?: string;
 }
 
+export interface X3pOrientation {
+  sourceSizeX: number;
+  sourceSizeY: number;
+  sourceWidthMeters: number;
+  sourceHeightMeters: number;
+  /** True when the displayed matrix is transposed relative to sourceFile. */
+  transposed: boolean;
+}
+
 export interface X3pScan {
   name: string;
   /** Original uploaded file, retained so model workflows can submit loaded evidence. */
   sourceFile?: File;
   meta: X3pMetadata;
+  orientation: X3pOrientation;
   /** Height values in meters, length = sizeX * sizeY, row-major with X fastest. NaN = invalid. */
   z: Float32Array;
   /** Physical extent in meters */
@@ -276,6 +286,13 @@ export async function parseX3p(
     name: file.name,
     sourceFile: file,
     meta,
+    orientation: {
+      sourceSizeX: meta.sizeX,
+      sourceSizeY: meta.sizeY,
+      sourceWidthMeters: axisExtentMeters(meta.sizeX, incX),
+      sourceHeightMeters: axisExtentMeters(meta.sizeY, incY),
+      transposed: false,
+    },
     z,
     widthMeters: axisExtentMeters(meta.sizeX, incX),
     heightMeters: axisExtentMeters(meta.sizeY, incY),
@@ -315,6 +332,10 @@ export function transposeScan(scan: X3pScan): X3pScan {
     z: zT,
     widthMeters: scan.heightMeters,
     heightMeters: scan.widthMeters,
+    orientation: {
+      ...scan.orientation,
+      transposed: !scan.orientation.transposed,
+    },
   };
 }
 

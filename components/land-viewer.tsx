@@ -7,6 +7,11 @@ import * as THREE from "three";
 import type { X3pScan } from "@/lib/x3p";
 import type { ColormapName } from "@/lib/colormap";
 import { buildLandGeometry } from "@/lib/geometry";
+import {
+  GROOVE_REGION_COLOR,
+  grooveRegionToDisplayRect,
+  type GrooveRegion,
+} from "@/lib/grooves";
 import { CameraController } from "./view-presets";
 import { useApp } from "@/lib/store";
 
@@ -17,6 +22,8 @@ interface Props {
   showWireframe: boolean;
   crosscutY: number;
 }
+
+const EMPTY_GROOVE_REGIONS: GrooveRegion[] = [];
 
 function LandContent({
   scan,
@@ -35,6 +42,9 @@ function LandContent({
   const setCrosscutY = useApp((s) => s.setCrosscutY);
   const setHighlightX = useApp((s) => s.setHighlightX);
   const highlightX = useApp((s) => s.highlightX);
+  const grooveRegions = useApp(
+    (s) => s.grooveRegionsByScan[scan.name] ?? EMPTY_GROOVE_REGIONS,
+  );
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     if (!e.uv) return;
@@ -52,6 +62,10 @@ function LandContent({
 
   const yLine = (crosscutY - 0.5) * build.height;
   const xLine = highlightX !== null ? (highlightX - 0.5) * build.width : null;
+  const overlayZ = Math.max(
+    0.04,
+    build.zMaxCenter * build.scale * zExaggeration * 50 + 0.025,
+  );
 
   return (
     <>
@@ -71,6 +85,17 @@ function LandContent({
           wireframe={showWireframe}
         />
       </mesh>
+
+      {grooveRegions.map((region, index) => (
+        <GrooveRegionOverlay
+          key={`${region.scanName}-${region.leftGroove}-${region.rightGroove}-${index}`}
+          region={region}
+          scan={scan}
+          width={build.width}
+          height={build.height}
+          z={overlayZ}
+        />
+      ))}
 
       {/* Y crosscut indicator — horizontal line across width */}
       <mesh position={[0, yLine, 0]} rotation={[Math.PI / 2, 0, 0]}>
@@ -93,6 +118,90 @@ function LandContent({
         </>
       )}
     </>
+  );
+}
+
+function GrooveRegionOverlay({
+  region,
+  scan,
+  width,
+  height,
+  z,
+}: {
+  region: GrooveRegion;
+  scan: X3pScan;
+  width: number;
+  height: number;
+  z: number;
+}) {
+  const rect = grooveRegionToDisplayRect(region, scan);
+  const regionWidth = Math.max(0, (rect.x1 - rect.x0) * width);
+  const regionHeight = Math.max(0, (rect.y1 - rect.y0) * height);
+  if (regionWidth <= 0 || regionHeight <= 0) return null;
+
+  const x = ((rect.x0 + rect.x1) * 0.5 - 0.5) * width;
+  const y = ((rect.y0 + rect.y1) * 0.5 - 0.5) * height;
+  const border = Math.max(0.025, Math.min(width, height) * 0.004);
+  const borderZ = z + 0.004;
+
+  return (
+    <group>
+      <mesh position={[x, y, z]} renderOrder={10}>
+        <planeGeometry args={[regionWidth, regionHeight]} />
+        <meshBasicMaterial
+          color={GROOVE_REGION_COLOR}
+          transparent
+          opacity={0.18}
+          depthWrite={false}
+          depthTest={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <mesh position={[x, y - regionHeight / 2, borderZ]} renderOrder={11}>
+        <planeGeometry args={[regionWidth, border]} />
+        <meshBasicMaterial
+          color={GROOVE_REGION_COLOR}
+          transparent
+          opacity={0.9}
+          depthWrite={false}
+          depthTest={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <mesh position={[x, y + regionHeight / 2, borderZ]} renderOrder={11}>
+        <planeGeometry args={[regionWidth, border]} />
+        <meshBasicMaterial
+          color={GROOVE_REGION_COLOR}
+          transparent
+          opacity={0.9}
+          depthWrite={false}
+          depthTest={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <mesh position={[x - regionWidth / 2, y, borderZ]} renderOrder={11}>
+        <planeGeometry args={[border, regionHeight]} />
+        <meshBasicMaterial
+          color={GROOVE_REGION_COLOR}
+          transparent
+          opacity={0.9}
+          depthWrite={false}
+          depthTest={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <mesh position={[x + regionWidth / 2, y, borderZ]} renderOrder={11}>
+        <planeGeometry args={[border, regionHeight]} />
+        <meshBasicMaterial
+          color={GROOVE_REGION_COLOR}
+          transparent
+          opacity={0.9}
+          depthWrite={false}
+          depthTest={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </group>
   );
 }
 

@@ -110,7 +110,8 @@ export default function DropZone({ compact = false }: Props) {
       </h3>
       <p className="relative mt-2 max-w-md text-sm text-slate-400">
         A single land for inspection, or several to stitch into a full bullet.
-        Files stay in your browser unless you run Model compare.
+        Files stay in your browser unless you run Model compare or Land(s)
+        detection.
       </p>
       {loading && (
         <p className="relative mt-4 text-xs text-amber-300">Parsing…</p>

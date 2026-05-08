@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import type { X3pScan } from "./x3p";
 import type { ColormapName } from "./colormap";
+import type { GrooveRegionsByScan } from "./grooves";
 
 export type ViewMode = "land" | "bullet" | "compare" | "model";
 export type ViewPreset = "perspective" | "top" | "bottom" | "front" | "side";
@@ -33,6 +34,9 @@ interface AppState {
   compareFlipA: boolean; // whether to mirror A vertically (top-bottom flip) in merged view
   compareFlipB: boolean; // whether to mirror B vertically (top-bottom flip) in merged view
   flatten: boolean; // whether to detrend the crosscut signature (polynomial fit removed)
+  grooveRegionsByScan: GrooveRegionsByScan;
+  grooveRequestId: string | null;
+  grooveLoading: boolean;
   viewPreset: ViewPreset;
   viewResetTick: number; // incremented to retrigger transitions
   error: string | null;
@@ -56,6 +60,11 @@ interface AppState {
   setCompareFlipA: (v: boolean) => void;
   setCompareFlipB: (v: boolean) => void;
   setFlatten: (v: boolean) => void;
+  setGrooveRegions: (
+    regions: GrooveRegionsByScan,
+    requestId?: string | null,
+  ) => void;
+  setGrooveLoading: (v: boolean) => void;
   setViewPreset: (v: ViewPreset) => void;
   setError: (e: string | null) => void;
   setLoading: (v: boolean) => void;
@@ -79,6 +88,9 @@ export const useApp = create<AppState>((set) => ({
   compareFlipA: true,
   compareFlipB: false,
   flatten: false,
+  grooveRegionsByScan: {},
+  grooveRequestId: null,
+  grooveLoading: false,
   viewPreset: "perspective",
   viewResetTick: 0,
   error: null,
@@ -90,19 +102,37 @@ export const useApp = create<AppState>((set) => ({
       mode: s.scans.length + newScans.length > 1 ? s.mode : "land",
       activeIndex: s.scans.length, // focus first of new batch
       highlightX: null,
+      grooveRegionsByScan: {},
+      grooveRequestId: null,
     })),
   removeScan: (idx) =>
     set((s) => {
       const next = s.scans.filter((_, i) => i !== idx);
+      const nextNames = new Set(next.map((scan) => scan.name));
+      const grooveRegionsByScan = Object.fromEntries(
+        Object.entries(s.grooveRegionsByScan).filter(([name]) =>
+          nextNames.has(name),
+        ),
+      );
       const nextMode =
         next.length < 2 && s.mode !== "land" ? "land" : s.mode;
       return {
         scans: next,
         activeIndex: Math.min(s.activeIndex, Math.max(0, next.length - 1)),
         mode: nextMode,
+        grooveRegionsByScan,
       };
     }),
-  clearScans: () => set({ scans: [], activeIndex: 0, mode: "land", error: null }),
+  clearScans: () =>
+    set({
+      scans: [],
+      activeIndex: 0,
+      mode: "land",
+      error: null,
+      grooveRegionsByScan: {},
+      grooveRequestId: null,
+      grooveLoading: false,
+    }),
   setActiveIndex: (i) => set({ activeIndex: i }),
   setMode: (mode) => set({ mode }),
   setColormap: (colormap) => set({ colormap }),
@@ -119,6 +149,9 @@ export const useApp = create<AppState>((set) => ({
   setCompareFlipA: (compareFlipA) => set({ compareFlipA }),
   setCompareFlipB: (compareFlipB) => set({ compareFlipB }),
   setFlatten: (flatten) => set({ flatten }),
+  setGrooveRegions: (grooveRegionsByScan, grooveRequestId = null) =>
+    set({ grooveRegionsByScan, grooveRequestId }),
+  setGrooveLoading: (grooveLoading) => set({ grooveLoading }),
   setViewPreset: (viewPreset) =>
     set((s) => ({ viewPreset, viewResetTick: s.viewResetTick + 1 })),
   setError: (error) => set({ error }),
