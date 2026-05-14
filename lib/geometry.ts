@@ -2,6 +2,13 @@ import * as THREE from "three";
 import { sampleColor, type ColormapName } from "./colormap";
 import type { X3pScan } from "./x3p";
 import { decimate } from "./x3p";
+import {
+  clampSignatureFraction,
+  clampSignatureRange,
+  rangeToIndexWindow,
+  signatureRangeWidth,
+  type SignatureRange,
+} from "./signature-range";
 
 export interface SurfaceBuildResult {
   geometry: THREE.BufferGeometry;
@@ -11,6 +18,8 @@ export interface SurfaceBuildResult {
   scale: number;
   zMinCenter: number;
   zMaxCenter: number;
+  /** Horizontal signature range retained in this geometry. */
+  xRange: SignatureRange;
 }
 
 const TARGET_MAX_DIM = 10; // scene units for the larger horizontal axis
@@ -32,12 +41,17 @@ export function buildLandGeometry(
    * individual dimensions.
    */
   sharedMaxPhys?: number,
+  xRange?: SignatureRange,
 ): SurfaceBuildResult {
   const { nx, ny, z } = decimate(scan, maxPoints);
+  const safeRange = clampSignatureRange(xRange);
+  const { start, end } = rangeToIndexWindow(nx, safeRange);
+  const cropNx = Math.max(1, end - start);
+  const rangeWidth = signatureRangeWidth(safeRange) || 1;
 
-  const physW = scan.widthMeters;
+  const physW = scan.widthMeters * rangeWidth;
   const physH = scan.heightMeters;
-  const maxPhys = sharedMaxPhys ?? (Math.max(physW, physH) || 1);
+  const maxPhys = sharedMaxPhys ?? (Math.max(scan.widthMeters, physH) || 1);
   const scale = TARGET_MAX_DIM / maxPhys;
   const width = physW * scale;
   const height = physH * scale;
@@ -45,18 +59,20 @@ export function buildLandGeometry(
   // Center Z around its median so the surface sits near z=0
   let zValid = 0;
   let zSum = 0;
-  for (let i = 0; i < z.length; i++) {
-    const v = z[i];
-    if (Number.isFinite(v)) {
-      zSum += v;
-      zValid++;
+  for (let j = 0; j < ny; j++) {
+    for (let i = start; i < end; i++) {
+      const v = z[j * nx + i];
+      if (Number.isFinite(v)) {
+        zSum += v;
+        zValid++;
+      }
     }
   }
   const zCenter = zValid ? zSum / zValid : 0;
   // Exaggerate Z visually relative to horizontal extent.
   const zScale = scale * zExaggeration * 50;
 
-  const vertexCount = nx * ny;
+  const vertexCount = cropNx * ny;
   const positions = new Float32Array(vertexCount * 3);
   const colors = new Float32Array(vertexCount * 3);
   const uvs = new Float32Array(vertexCount * 2);
@@ -65,12 +81,14 @@ export function buildLandGeometry(
   // Find z range of centered data
   let zMinCenter = Infinity;
   let zMaxCenter = -Infinity;
-  for (let i = 0; i < z.length; i++) {
-    const v = z[i];
-    if (Number.isFinite(v)) {
-      const d = v - zCenter;
-      if (d < zMinCenter) zMinCenter = d;
-      if (d > zMaxCenter) zMaxCenter = d;
+  for (let j = 0; j < ny; j++) {
+    for (let i = start; i < end; i++) {
+      const v = z[j * nx + i];
+      if (Number.isFinite(v)) {
+        const d = v - zCenter;
+        if (d < zMinCenter) zMinCenter = d;
+        if (d > zMaxCenter) zMaxCenter = d;
+      }
     }
   }
   if (!Number.isFinite(zMinCenter)) {
@@ -80,11 +98,16 @@ export function buildLandGeometry(
   const zRange = zMaxCenter - zMinCenter || 1e-9;
 
   for (let j = 0; j < ny; j++) {
-    for (let i = 0; i < nx; i++) {
-      const idx = j * nx + i;
-      const x = (i / (nx - 1) - 0.5) * width;
+    for (let i = 0; i < cropNx; i++) {
+      const srcI = start + i;
+      const idx = j * cropNx + i;
+      const sourceXFrac = nx > 1 ? srcI / (nx - 1) : 0.5;
+      const localXFrac = clampSignatureFraction(
+        (sourceXFrac - safeRange.x0) / rangeWidth,
+      );
+      const x = (localXFrac - 0.5) * width;
       const y = (j / (ny - 1) - 0.5) * height;
-      const zRaw = z[idx];
+      const zRaw = z[j * nx + srcI];
       const valid = Number.isFinite(zRaw);
       validMask[idx] = valid ? 1 : 0;
       const zCentered = valid ? zRaw - zCenter : 0;
@@ -96,18 +119,18 @@ export function buildLandGeometry(
       colors[idx * 3] = r;
       colors[idx * 3 + 1] = g;
       colors[idx * 3 + 2] = b;
-      uvs[idx * 2] = i / (nx - 1);
+      uvs[idx * 2] = sourceXFrac;
       uvs[idx * 2 + 1] = j / (ny - 1);
     }
   }
 
   const triangles: number[] = [];
   for (let j = 0; j < ny - 1; j++) {
-    for (let i = 0; i < nx - 1; i++) {
-      const a = j * nx + i;
-      const b = j * nx + i + 1;
-      const c = (j + 1) * nx + i;
-      const d = (j + 1) * nx + i + 1;
+    for (let i = 0; i < cropNx - 1; i++) {
+      const a = j * cropNx + i;
+      const b = j * cropNx + i + 1;
+      const c = (j + 1) * cropNx + i;
+      const d = (j + 1) * cropNx + i + 1;
       if (validMask[a] && validMask[b] && validMask[c]) {
         triangles.push(a, c, b);
       }
@@ -128,7 +151,15 @@ export function buildLandGeometry(
   );
   geometry.computeVertexNormals();
 
-  return { geometry, width, height, scale, zMinCenter, zMaxCenter };
+  return {
+    geometry,
+    width,
+    height,
+    scale,
+    zMinCenter,
+    zMaxCenter,
+    xRange: safeRange,
+  };
 }
 
 /**
@@ -146,6 +177,7 @@ export interface StitchedBuildOptions {
   verticalScale: number; // scene units per meter (Y axis)
   zExaggeration: number;
   colormap: ColormapName;
+  xRange?: SignatureRange;
 }
 
 /**
@@ -222,13 +254,34 @@ function detrendBaseline(
   return { baseline, baselineMean };
 }
 
+function sliceGridX(
+  z: Float32Array,
+  sourceNx: number,
+  ny: number,
+  start: number,
+  end: number,
+): Float32Array {
+  const nx = Math.max(0, end - start);
+  const out = new Float32Array(nx * ny);
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      out[j * nx + i] = z[j * sourceNx + start + i];
+    }
+  }
+  return out;
+}
+
 export function buildStitchedLandGeometry(
   scan: X3pScan,
   opts: StitchedBuildOptions,
   maxPoints = 250_000,
 ): THREE.BufferGeometry {
-  const { nx, ny, z } = decimate(scan, maxPoints);
+  const { nx: sourceNx, ny, z: sourceZ } = decimate(scan, maxPoints);
   const { baseRadius, theta0, deltaTheta, verticalScale, zExaggeration, colormap } = opts;
+  const safeRange = clampSignatureRange(opts.xRange);
+  const { start, end } = rangeToIndexWindow(sourceNx, safeRange);
+  const nx = Math.max(1, end - start);
+  const z = sliceGridX(sourceZ, sourceNx, ny, start, end);
 
   // Separate bullet's natural curvature (baseline) from striae (detail) so
   // that Z exaggeration can amplify the striae without distorting the
@@ -282,7 +335,7 @@ export function buildStitchedLandGeometry(
     const yScene = (j / (ny - 1) - 0.5) * heightScene;
     for (let i = 0; i < nx; i++) {
       const idx = j * nx + i;
-      const t = i / (nx - 1);
+      const t = sourceNx > 1 ? (start + i) / (sourceNx - 1) : 0.5;
       const theta = theta0 + t * deltaTheta;
       const zRaw = z[idx];
       const valid = Number.isFinite(zRaw);

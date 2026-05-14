@@ -127,6 +127,38 @@ describe("buildLandGeometry", () => {
     // Shared scaling shrinks the smaller scan relative to its solo rendering.
     expect(aShared.width).toBeLessThan(aSolo.width);
   });
+
+  it("builds only the selected horizontal signature range", async () => {
+    const { zipBytes } = buildSyntheticX3p({ sizeX: 24, sizeY: 18 });
+    const scan = await parseX3p(asFile(zipBytes));
+
+    const full = buildLandGeometry(scan, "viridis", 1);
+    const cropped = buildLandGeometry(
+      scan,
+      "viridis",
+      1,
+      undefined,
+      undefined,
+      { x0: 0.25, x1: 0.75 },
+    );
+
+    const fullPos = full.geometry.getAttribute("position");
+    const croppedPos = cropped.geometry.getAttribute("position");
+    const croppedUv = cropped.geometry.getAttribute("uv");
+
+    expect(croppedPos.count).toBeLessThan(fullPos.count);
+    expect(cropped.width).toBeCloseTo(full.width * 0.5, 5);
+    expect(cropped.xRange).toEqual({ x0: 0.25, x1: 0.75 });
+
+    let minU = Infinity;
+    let maxU = -Infinity;
+    for (let i = 0; i < croppedUv.count; i++) {
+      minU = Math.min(minU, croppedUv.getX(i));
+      maxU = Math.max(maxU, croppedUv.getX(i));
+    }
+    expect(minU).toBeGreaterThanOrEqual(0.25);
+    expect(maxU).toBeLessThanOrEqual(0.75);
+  });
 });
 
 describe("buildStitchedLandGeometry", () => {
@@ -156,5 +188,21 @@ describe("buildStitchedLandGeometry", () => {
     const maxR = Math.max(...radii);
     expect(minR).toBeGreaterThan(baseRadius * 0.85);
     expect(maxR).toBeLessThan(baseRadius * 1.15);
+  });
+
+  it("crops stitched land geometry to the selected x range", async () => {
+    const { zipBytes } = buildSyntheticX3p({ sizeX: 30, sizeY: 20 });
+    const scan = await parseX3p(asFile(zipBytes));
+    const geo = buildStitchedLandGeometry(scan, {
+      baseRadius: 4.5,
+      theta0: 0,
+      deltaTheta: Math.PI / 6,
+      verticalScale: 1,
+      zExaggeration: 1,
+      colormap: "cividis",
+      xRange: { x0: 0.2, x1: 0.8 },
+    });
+
+    expect(geo.getAttribute("position").count).toBeLessThan(30 * 20);
   });
 });

@@ -8,6 +8,8 @@ import type { X3pScan } from "@/lib/x3p";
 import type { ColormapName } from "@/lib/colormap";
 import { buildStitchedLandGeometry } from "@/lib/geometry";
 import { CameraController } from "./view-presets";
+import { useApp } from "@/lib/store";
+import { FULL_SIGNATURE_RANGE } from "@/lib/signature-range";
 
 interface Props {
   scans: X3pScan[];
@@ -50,6 +52,9 @@ function StitchedLand({
   colormap: ColormapName;
   showWireframe: boolean;
 }) {
+  const xRange = useApp(
+    (s) => s.grooveCropRangesByScan[scan.name] ?? FULL_SIGNATURE_RANGE,
+  );
   const geometry = useMemo(
     () =>
       buildStitchedLandGeometry(scan, {
@@ -59,8 +64,18 @@ function StitchedLand({
         verticalScale,
         zExaggeration,
         colormap,
+        xRange,
       }),
-    [scan, baseRadius, theta0, deltaTheta, verticalScale, zExaggeration, colormap],
+    [
+      scan,
+      baseRadius,
+      theta0,
+      deltaTheta,
+      verticalScale,
+      zExaggeration,
+      colormap,
+      xRange,
+    ],
   );
   useEffect(() => () => geometry.dispose(), [geometry]);
 

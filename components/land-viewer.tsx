@@ -14,6 +14,12 @@ import {
 } from "@/lib/grooves";
 import { CameraController } from "./view-presets";
 import { useApp } from "@/lib/store";
+import {
+  FULL_SIGNATURE_RANGE,
+  fractionToRangeLocal,
+  signatureRangeWidth,
+  type SignatureRange,
+} from "@/lib/signature-range";
 
 interface Props {
   scan: X3pScan;
@@ -32,20 +38,31 @@ function LandContent({
   showWireframe,
   crosscutY,
 }: Props) {
-  const build = useMemo(
-    () => buildLandGeometry(scan, colormap, zExaggeration),
-    [scan, colormap, zExaggeration],
-  );
-
-  useEffect(() => () => build.geometry.dispose(), [build]);
-
   const setCrosscutY = useApp((s) => s.setCrosscutY);
   const setHighlightX = useApp((s) => s.setHighlightX);
   const highlightX = useApp((s) => s.highlightX);
+  const grooveCropRange = useApp(
+    (s) => s.grooveCropRangesByScan[scan.name] ?? FULL_SIGNATURE_RANGE,
+  );
   const grooveVisible = useApp((s) => s.grooveVisible);
   const grooveRegions = useApp(
     (s) => s.grooveRegionsByScan[scan.name] ?? EMPTY_GROOVE_REGIONS,
   );
+
+  const build = useMemo(
+    () =>
+      buildLandGeometry(
+        scan,
+        colormap,
+        zExaggeration,
+        undefined,
+        undefined,
+        grooveCropRange,
+      ),
+    [scan, colormap, zExaggeration, grooveCropRange],
+  );
+
+  useEffect(() => () => build.geometry.dispose(), [build]);
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     if (!e.uv) return;
@@ -62,7 +79,10 @@ function LandContent({
   };
 
   const yLine = (crosscutY - 0.5) * build.height;
-  const xLine = highlightX !== null ? (highlightX - 0.5) * build.width : null;
+  const highlightLocalX =
+    highlightX !== null ? fractionToRangeLocal(highlightX, build.xRange) : null;
+  const xLine =
+    highlightLocalX !== null ? (highlightLocalX - 0.5) * build.width : null;
   const overlayZ = Math.max(
     0.04,
     build.zMaxCenter * build.scale * zExaggeration * 50 + 0.025,
@@ -96,6 +116,7 @@ function LandContent({
             width={build.width}
             height={build.height}
             z={overlayZ}
+            xRange={build.xRange}
           />
         ))}
 
@@ -129,19 +150,28 @@ function GrooveRegionOverlay({
   width,
   height,
   z,
+  xRange,
 }: {
   region: GrooveRegion;
   scan: X3pScan;
   width: number;
   height: number;
   z: number;
+  xRange: SignatureRange;
 }) {
   const rect = grooveRegionToDisplayRect(region, scan);
-  const regionWidth = Math.max(0, (rect.x1 - rect.x0) * width);
+  const clippedX0 = Math.max(rect.x0, xRange.x0);
+  const clippedX1 = Math.min(rect.x1, xRange.x1);
+  if (clippedX1 <= clippedX0) return null;
+
+  const localWidth = signatureRangeWidth(xRange) || 1;
+  const localX0 = (clippedX0 - xRange.x0) / localWidth;
+  const localX1 = (clippedX1 - xRange.x0) / localWidth;
+  const regionWidth = Math.max(0, (localX1 - localX0) * width);
   const regionHeight = Math.max(0, (rect.y1 - rect.y0) * height);
   if (regionWidth <= 0 || regionHeight <= 0) return null;
 
-  const x = ((rect.x0 + rect.x1) * 0.5 - 0.5) * width;
+  const x = ((localX0 + localX1) * 0.5 - 0.5) * width;
   const y = ((rect.y0 + rect.y1) * 0.5 - 0.5) * height;
   const border = Math.max(0.025, Math.min(width, height) * 0.004);
   const borderZ = z + 0.004;

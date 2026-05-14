@@ -27,8 +27,9 @@ the selected evidence bundles to the configured comparison API.
 - **Model compare mode** — submit the already-loaded evidence sets to a
   comparison service, follow job progress, and inspect match probability,
   artifacts, feature JSON, and provenance in the same app flow.
-- **Crosscut plot** — live 1D signature extraction at any Y position, with
-  optional detrending (quadratic fit, trimmed endpoints) to isolate striae.
+- **Crosscut plot** — live 1D signature extraction at any Y position, with a
+  draggable groove rectangle that crops the scan/signature and optional LOESS
+  detrending to isolate striae inside that range.
 - **Colormaps** — Viridis, Plasma, Magma, **Cividis (default)**, Turbo, Bone.
 - **Scale overlay** — real-world micron/mm measurements on the active scan.
 - **Learn panel** — built-in glossary and educational overlays explaining
@@ -79,10 +80,11 @@ CI runs typecheck → lint → test → build on every push and PR; see
 ## Deploying
 
 The viewer is a client-side Next.js app. It also includes a thin allowlisted
-`/api/demo/[id]` proxy for the NIST demo files. Model compare and Land(s)
-detection call the API configured by `NEXT_PUBLIC_BULLET_COMPARE_API_BASE` or
-the URL typed into the model panel. Set `NEXT_PUBLIC_BULLET_GROOVES_API_BASE`
-only if groove detection lives at a different API base.
+`/api/demo/[id]` proxy for the NIST demo files. Model compare calls the API
+configured by `NEXT_PUBLIC_BULLET_COMPARE_API_BASE` or the URL typed into the
+model panel. The land-boundary detection client is still available internally;
+set `NEXT_PUBLIC_BULLET_GROOVES_API_BASE` only if that hidden workflow uses a
+different API base.
 
 Deploy to [Vercel](https://vercel.com/) with zero config for the viewer and
 demo proxy:

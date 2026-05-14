@@ -9,6 +9,10 @@ import type { ColormapName } from "@/lib/colormap";
 import { buildLandGeometry } from "@/lib/geometry";
 import { CameraController } from "./view-presets";
 import { useApp } from "@/lib/store";
+import {
+  FULL_SIGNATURE_RANGE,
+  fractionToRangeLocal,
+} from "@/lib/signature-range";
 
 interface Props {
   scanA: X3pScan;
@@ -49,16 +53,36 @@ function MergedContent({
       ),
     [scanA, scanB],
   );
+  const cropRangeA = useApp(
+    (s) => s.grooveCropRangesByScan[scanA.name] ?? FULL_SIGNATURE_RANGE,
+  );
+  const cropRangeB = useApp(
+    (s) => s.grooveCropRangesByScan[scanB.name] ?? FULL_SIGNATURE_RANGE,
+  );
 
   const buildA = useMemo(
     () =>
-      buildLandGeometry(scanA, colormap, zExaggeration, undefined, sharedMaxPhys),
-    [scanA, colormap, zExaggeration, sharedMaxPhys],
+      buildLandGeometry(
+        scanA,
+        colormap,
+        zExaggeration,
+        undefined,
+        sharedMaxPhys,
+        cropRangeA,
+      ),
+    [scanA, colormap, zExaggeration, sharedMaxPhys, cropRangeA],
   );
   const buildB = useMemo(
     () =>
-      buildLandGeometry(scanB, colormap, zExaggeration, undefined, sharedMaxPhys),
-    [scanB, colormap, zExaggeration, sharedMaxPhys],
+      buildLandGeometry(
+        scanB,
+        colormap,
+        zExaggeration,
+        undefined,
+        sharedMaxPhys,
+        cropRangeB,
+      ),
+    [scanB, colormap, zExaggeration, sharedMaxPhys, cropRangeB],
   );
 
   useEffect(
@@ -99,11 +123,15 @@ function MergedContent({
     bY + (flipB ? -1 : 1) * (crosscutY - 0.5) * buildB.height;
 
   // X highlight lines (vertical)
+  const highlightLocalA =
+    highlightX !== null ? fractionToRangeLocal(highlightX, buildA.xRange) : null;
   const xLineA =
-    highlightX !== null ? (highlightX - 0.5) * buildA.width : null;
+    highlightLocalA !== null ? (highlightLocalA - 0.5) * buildA.width : null;
   // B is not flipped in X when stacked, so the scan fraction maps directly.
+  const highlightLocalB =
+    highlightX !== null ? fractionToRangeLocal(highlightX, buildB.xRange) : null;
   const xLineB =
-    highlightX !== null ? bX + (highlightX - 0.5) * buildB.width : null;
+    highlightLocalB !== null ? bX + (highlightLocalB - 0.5) * buildB.width : null;
 
   const maxWidth = Math.max(buildA.width, buildB.width + Math.abs(bX) * 2);
 

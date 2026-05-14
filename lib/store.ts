@@ -8,6 +8,10 @@ import type {
   GrooveRegionsByScan,
 } from "./grooves";
 import { DEFAULT_API_BASE } from "./api";
+import {
+  clampSignatureRange,
+  type SignatureRange,
+} from "./signature-range";
 
 export type ViewMode = "land" | "bullet" | "compare" | "model";
 export type ViewPreset = "perspective" | "top" | "bottom" | "front" | "side";
@@ -37,7 +41,8 @@ interface AppState {
   compareOffset: number;
   compareFlipA: boolean; // whether to mirror A vertically (top-bottom flip) in merged view
   compareFlipB: boolean; // whether to mirror B vertically (top-bottom flip) in merged view
-  flatten: boolean; // whether to detrend the crosscut signature (polynomial fit removed)
+  flatten: boolean; // whether to detrend the crosscut signature (LOESS baseline removed)
+  grooveCropRangesByScan: Record<string, SignatureRange>;
   grooveRegionsByScan: GrooveRegionsByScan;
   grooveRequestId: string | null;
   grooveLoading: boolean;
@@ -68,6 +73,7 @@ interface AppState {
   setCompareFlipA: (v: boolean) => void;
   setCompareFlipB: (v: boolean) => void;
   setFlatten: (v: boolean) => void;
+  setGrooveCropRange: (scanName: string, range: SignatureRange) => void;
   setGrooveRegions: (
     regions: GrooveRegionsByScan,
     requestId?: string | null,
@@ -100,6 +106,7 @@ export const useApp = create<AppState>((set) => ({
   compareFlipA: true,
   compareFlipB: false,
   flatten: false,
+  grooveCropRangesByScan: {},
   grooveRegionsByScan: {},
   grooveRequestId: null,
   grooveLoading: false,
@@ -118,6 +125,10 @@ export const useApp = create<AppState>((set) => ({
       mode: s.scans.length + newScans.length > 1 ? s.mode : "land",
       activeIndex: s.scans.length, // focus first of new batch
       highlightX: null,
+      grooveCropRangesByScan: {
+        ...s.grooveCropRangesByScan,
+        ...Object.fromEntries(newScans.map((scan) => [scan.name, { x0: 0, x1: 1 }])),
+      },
       grooveRegionsByScan: {},
       grooveRequestId: null,
       grooveVisible: false,
@@ -132,12 +143,18 @@ export const useApp = create<AppState>((set) => ({
           nextNames.has(name),
         ),
       );
+      const grooveCropRangesByScan = Object.fromEntries(
+        Object.entries(s.grooveCropRangesByScan).filter(([name]) =>
+          nextNames.has(name),
+        ),
+      );
       const nextMode =
         next.length < 2 && s.mode !== "land" ? "land" : s.mode;
       return {
         scans: next,
         activeIndex: Math.min(s.activeIndex, Math.max(0, next.length - 1)),
         mode: nextMode,
+        grooveCropRangesByScan,
         grooveRegionsByScan,
         grooveVisible: false,
         grooveCacheKey: null,
@@ -149,6 +166,7 @@ export const useApp = create<AppState>((set) => ({
       activeIndex: 0,
       mode: "land",
       error: null,
+      grooveCropRangesByScan: {},
       grooveRegionsByScan: {},
       grooveRequestId: null,
       grooveLoading: false,
@@ -172,6 +190,13 @@ export const useApp = create<AppState>((set) => ({
   setCompareFlipA: (compareFlipA) => set({ compareFlipA }),
   setCompareFlipB: (compareFlipB) => set({ compareFlipB }),
   setFlatten: (flatten) => set({ flatten }),
+  setGrooveCropRange: (scanName, range) =>
+    set((s) => ({
+      grooveCropRangesByScan: {
+        ...s.grooveCropRangesByScan,
+        [scanName]: clampSignatureRange(range),
+      },
+    })),
   setGrooveRegions: (
     grooveRegionsByScan,
     grooveRequestId = null,

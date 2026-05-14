@@ -116,17 +116,19 @@ Pure functions that turn an `X3pScan` into a `THREE.BufferGeometry`:
 
 ### `lib/flatten.ts`
 
-Least-squares polynomial detrend for a 1D crosscut:
+LOESS detrend for a 1D crosscut:
 
-1. Trim `trimFrac` (default 10%) from each side — the groove-impression
-   region typically has a strong slope that isn't striae.
-2. Fit an order-`degree` polynomial (default quadratic) to the remaining
-   finite samples using normal equations + Gaussian elimination with partial
-   pivoting.
-3. Subtract the fit; return the residual.
+1. Use the selected groove rectangle as the data window. `trimFrac` remains
+   available for callers that need an additional fixed endpoint trim.
+2. Estimate a smooth low-frequency baseline with local weighted linear
+   regression over `spanFrac` of the finite samples, using tricube weights.
+3. Subtract the baseline; return the residual.
+4. In the plot, hide a small endpoint guard band so one-sided smoother support
+   and land/groove transition artifacts do not read as striae.
 
-Works in normalized X coordinates so the matrix conditioning is independent
-of the scan's physical units.
+The older least-squares polynomial detrend remains available as
+`method: "polynomial"` for comparison and tests. Both paths work in normalized
+X coordinates so the conditioning is independent of the scan's physical units.
 
 ### `lib/colormap.ts`
 
@@ -170,7 +172,7 @@ Tiny helpers: `cn()` for Tailwind class merging, `formatMicrons()` /
 | `land-viewer.tsx` | Canvas for single-land view. Builds `buildLandGeometry`; renders mesh + Y crosscut bar + X highlight. |
 | `bullet-viewer.tsx` | Canvas for stitched bullet; computes angular layout from `landCoverage`; renders cylinder + N `StitchedLand`s. |
 | `merged-compare-viewer.tsx` | Canvas for merged visual compare; stacked A/B panels with independent flips and B-slide, shared crosscut + highlight. |
-| `crosscut-plot.tsx` | 2D canvas line plot with colormap-shaded line, optional flatten, X highlight. |
+| `crosscut-plot.tsx` | 2D canvas line plot with draggable groove rectangle, cropped colormap-shaded line, optional LOESS flatten, X highlight. |
 | `metadata-panel.tsx` | Right-hand drawer with scan metadata, colormap picker, sliders, wireframe toggle. |
 | `learn-panel.tsx` | Educational overlay explaining lands, striae, and the x3p format. |
 | `scale-overlay.tsx` | Physical scale bar (µm / mm) on the active viewer. |
